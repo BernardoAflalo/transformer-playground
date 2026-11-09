@@ -19,3 +19,5 @@ O modelo é uma miniatura (d_model = 8, 2 cabeças, 2 camadas) com **pesos aleat
 mas executa exatamente as operações do paper, para que os alunos vejam formatos e cálculos de cada etapa.
 
 Arquivo único (`index.html`), sem build. Fórmulas renderizadas com KaTeX.
+
+Série: Transformer · [BERT](https://bernardoaflalo.github.io/bert-playground/) · [GPT](https://bernardoaflalo.github.io/gpt-playground/)
