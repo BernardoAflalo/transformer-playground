@@ -1,0 +1,1239 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transformer, peça por peça — playground interativo</title>
+<meta name="description" content="Playground interativo e didático da arquitetura Transformer, segundo o artigo Attention Is All You Need (Vaswani et al., 2017).">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<style>
+:root{
+  --navy:#12396b; --navy-d:#0a2850; --navy-2:#2a5288;
+  --accent:#1288cf; --accent-l:#dcEEFa;
+  --steel:#8aa2bf; --steel-l:#c8d5e4; --mist:#eef3f8; --mist-2:#f6f9fc;
+  --ink:#1d2a3a; --muted:#5b6b7e; --amber:#d9822b; --ok:#2e8b57; --bad:#c0392b;
+  --r:10px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:Verdana,Tahoma,Geneva,sans-serif;color:var(--ink);background:#fff;font-size:14.5px;line-height:1.65}
+a{color:var(--accent)}
+h1,h2,h3{color:var(--navy);line-height:1.25}
+h3{font-size:15px;margin:0 0 10px}
+p{margin:0 0 12px}
+ul,ol{margin:0 0 12px;padding-left:22px}
+li{margin-bottom:4px}
+small,.small{font-size:12.5px}
+.muted{color:var(--muted)}
+code,.mono{font-family:Consolas,Menlo,monospace}
+
+/* ---------- hero ---------- */
+.hero{position:relative;overflow:hidden;background:#fff;border-bottom:1px solid var(--steel-l);min-height:210px}
+.hero svg.swoosh{position:absolute;inset:0;width:100%;height:100%}
+.hero-in{position:relative;max-width:1380px;margin:0 auto;padding:34px 28px 26px;text-align:right}
+.hero h1{margin:0;font-size:clamp(26px,4vw,40px);font-weight:700;letter-spacing:-.3px}
+.hero .sub{margin:10px 0 0;color:var(--navy);font-size:clamp(14px,1.8vw,19px)}
+.hero .author{margin:14px 0 0;color:var(--navy);font-size:16px}
+
+/* ---------- controls ---------- */
+.controls{background:linear-gradient(180deg,var(--mist-2),var(--mist));border-bottom:1px solid var(--steel-l)}
+.ctl-in{max-width:1380px;margin:0 auto;padding:14px 28px;display:grid;grid-template-columns:1fr 1fr auto;gap:16px;align-items:end}
+.fld span{display:block;font-size:12px;color:var(--navy);font-weight:700;margin-bottom:4px}
+.fld small{font-weight:400;color:var(--muted)}
+.fld input{width:100%;padding:9px 12px;border:1px solid var(--steel-l);border-radius:8px;font:inherit;font-size:15px;color:var(--ink);background:#fff}
+.fld input:focus{outline:2px solid var(--accent);border-color:transparent}
+.ctl-btns{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{font:inherit;font-size:13px;background:var(--navy);color:#fff;border:1px solid var(--navy);border-radius:8px;padding:8px 14px;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--navy-2)}
+.btn.ghost{background:#fff;color:var(--navy);border-color:var(--steel-l)}
+.btn.ghost:hover{border-color:var(--navy)}
+.btn.acc{background:var(--accent);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:default}
+
+/* ---------- stepper ---------- */
+.stepper{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border-bottom:1px solid var(--steel-l)}
+.stepper-in{max-width:1380px;margin:0 auto;padding:8px 20px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin}
+.chip{flex:0 0 auto;font:inherit;font-size:12px;border:1px solid var(--steel-l);background:#fff;color:var(--navy);border-radius:999px;padding:5px 11px;cursor:pointer;display:flex;gap:6px;align-items:center}
+.chip .n{display:inline-grid;place-items:center;width:19px;height:19px;border-radius:50%;background:var(--mist);font-size:10.5px;font-weight:700}
+.chip:hover{border-color:var(--navy)}
+.chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.chip.on .n{background:var(--accent);color:#fff}
+.chip.done .n{background:var(--accent-l)}
+.chip-sep{flex:0 0 auto;align-self:center;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--steel);padding:0 2px 0 8px}
+
+/* ---------- layout ---------- */
+.layout{max-width:1380px;margin:0 auto;padding:22px 20px 40px;display:grid;grid-template-columns:350px minmax(0,1fr);gap:28px}
+aside.diagram{position:sticky;top:62px;align-self:start}
+.dg-card{border:1px solid var(--steel-l);border-radius:var(--r);background:linear-gradient(180deg,#fff,var(--mist-2));padding:10px 6px 8px}
+.dg-title{font-size:12px;font-weight:700;color:var(--navy);text-align:center}
+.dg-hint{font-size:11px;color:var(--muted);text-align:center}
+#diagram svg{width:100%;height:auto;display:block}
+.blk rect{stroke:var(--navy);stroke-width:1.2;cursor:pointer;transition:fill .2s}
+.blk text{font-size:9.5px;fill:var(--navy);text-anchor:middle;pointer-events:none;font-family:Verdana,sans-serif}
+.blk.att rect{fill:#dbe6f2}.blk.ff rect{fill:#e8eef6}.blk.norm rect{fill:#f4f7fb}.blk.emb rect{fill:#e3edf7}.blk.out rect{fill:#e1eef9}.blk.io rect{fill:#fff;stroke-dasharray:3 2}
+.blk:hover rect{stroke:var(--accent);stroke-width:2}
+.blk.act rect{fill:var(--accent);stroke:var(--navy-d);stroke-width:2}
+.blk.act text{fill:#fff;font-weight:700}
+.frame{fill:#f3f6fa;stroke:var(--steel);stroke-width:1.2}
+.frame.act{stroke:var(--accent);stroke-width:3;fill:#e9f4fc}
+.ar{fill:none;stroke:var(--navy);stroke-width:1.2}
+.ar.res{stroke:var(--steel);stroke-dasharray:3 2}
+.ar.act{stroke:var(--accent);stroke-width:3}
+.pe-g{cursor:pointer}
+.pe-g circle{fill:#fff;stroke:var(--navy);stroke-width:1.2}
+.pe-g.act circle{fill:var(--accent)}
+.pe-g.act .pl{stroke:#fff}
+.pe-g .pl{stroke:var(--navy);stroke-width:1.4}
+.pe-g .wave{fill:none;stroke:var(--navy);stroke-width:1.2}
+.pe-g.act .wave{stroke:var(--accent);stroke-width:2}
+.dg-txt{font-size:8.5px;fill:var(--muted);font-family:Verdana,sans-serif}
+.dg-lbl{font-size:9px;fill:var(--navy);font-weight:700;letter-spacing:1px;font-family:Verdana,sans-serif}
+
+/* ---------- content ---------- */
+.step-head{margin-bottom:14px}
+.step-kicker{font-size:11.5px;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent);font-weight:700}
+.step-head h2{margin:2px 0 8px;font-size:clamp(22px,2.6vw,30px)}
+.key{display:inline-block;background:var(--mist);border-left:4px solid var(--accent);padding:8px 14px;border-radius:0 8px 8px 0;color:var(--navy);font-size:14px}
+.lead{font-size:15.5px}
+.card{border:1px solid var(--steel-l);border-radius:var(--r);padding:16px 18px;margin:0 0 16px;background:#fff}
+.card.soft{background:var(--mist-2)}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.grid2>.card,.grid3>.card{margin:0}
+.grid2{margin-bottom:16px}
+.note{border-radius:8px;padding:11px 15px;margin:0 0 16px;border:1px solid;font-size:13.8px}
+.note-t{font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.note p:last-child,.note ul:last-child{margin-bottom:0}
+.note.intu{background:#f1f7fd;border-color:#bcd9f0}.note.intu .note-t{color:var(--accent)}
+.note.paper{background:#f5f6fa;border-color:var(--steel-l)}.note.paper .note-t{color:var(--navy)}
+.note.warn{background:#fdf6ee;border-color:#f0d3b0}.note.warn .note-t{color:#b0661a}
+.note.try{background:#f0f8f3;border-color:#bfe0cb}.note.try .note-t{color:var(--ok)}
+.formula{overflow-x:auto;overflow-y:hidden;background:var(--mist-2);border:1px solid var(--mist);border-radius:8px;padding:2px 12px;margin:0 0 16px}
+.shape{display:inline-block;font-family:Consolas,Menlo,monospace;font-size:11.5px;background:var(--navy);color:#fff;border-radius:5px;padding:1px 7px;margin-left:4px;font-weight:400;letter-spacing:0;text-transform:none}
+.shape.paper{background:var(--mist);color:var(--navy);border:1px solid var(--steel-l)}
+table.tbl{border-collapse:collapse;width:100%;font-size:13px;margin-bottom:6px}
+.tbl th,.tbl td{padding:6px 9px;border-bottom:1px solid var(--mist);text-align:left;vertical-align:top}
+.tbl th{color:var(--navy);background:var(--mist-2);font-size:12px}
+.tbl td.num,.tbl th.num{text-align:right;font-family:Consolas,Menlo,monospace}
+.tbl tr.hl td{background:#eaf4fc}
+.tbl-wrap{overflow-x:auto}
+
+/* tokens */
+.toks{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px}
+.tok{display:inline-flex;flex-direction:column;align-items:center;border:1px solid var(--steel-l);border-radius:8px;padding:4px 10px;background:#fff;font-size:14px;min-width:40px}
+.tok .id{font-size:10.5px;color:var(--muted);font-family:Consolas,monospace}
+.tok.sp{background:var(--mist);color:var(--navy)}
+.tok.clk{cursor:pointer}.tok.clk:hover{border-color:var(--accent)}
+.tok.on{border-color:var(--accent);background:var(--accent);color:#fff}.tok.on .id{color:#e6f3fc}
+.vocab .tok{font-size:12px;padding:2px 7px}
+.vocab .tok.used{border-color:var(--navy);background:#e6eef7}
+
+/* heatmaps */
+.hm-wrap{margin:0 0 12px;min-width:0}
+.hm-title{font-size:12.5px;font-weight:700;color:var(--navy);margin-bottom:4px}
+.hm-scroll{overflow-x:auto;padding-bottom:2px}
+.hm{display:inline-grid;gap:2px;font-family:Consolas,Menlo,monospace;font-size:10.5px}
+.hm .hc{font-size:10px;color:var(--muted);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;align-self:end}
+.hm .hr{font-size:11px;color:var(--navy);padding-right:6px;text-align:right;white-space:nowrap;align-self:center;max-width:90px;overflow:hidden;text-overflow:ellipsis;font-family:Verdana,sans-serif}
+.hm .hr.clk{cursor:pointer;text-decoration:underline dotted}
+.hm .hr.hl{font-weight:700;color:var(--accent)}
+.hm .c{display:grid;place-items:center;border-radius:3px;cursor:crosshair}
+.hm .c.hl{box-shadow:inset 0 0 0 2px var(--accent)}
+.hm .c.ninf{background:repeating-linear-gradient(45deg,#e7ebf0,#e7ebf0 3px,#f6f8fa 3px,#f6f8fa 6px);color:#8a96a5}
+.hm .c.zero{outline:1px dashed #c3ccd7;outline-offset:-1px}
+.hm-cap{font-size:11.5px;color:var(--muted);margin-top:3px}
+.flowrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}
+.flowrow>.hm-wrap,.grid2>div,.card{max-width:100%;min-width:0}
+.flowrow .op{font-size:22px;color:var(--steel);font-weight:700;padding:0 2px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);align-items:center}
+.sw{display:inline-block;width:28px;height:12px;border-radius:3px;vertical-align:middle;margin-right:4px}
+
+/* controls inside steps */
+.ctrl-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 14px;padding:8px 12px;background:var(--mist-2);border:1px solid var(--mist);border-radius:8px}
+.ctrl-lbl{font-size:12px;color:var(--navy);font-weight:700}
+.seg{display:inline-flex;border:1px solid var(--steel-l);border-radius:8px;overflow:hidden}
+.seg button{font:inherit;font-size:12.5px;border:0;background:#fff;color:var(--navy);padding:4px 11px;cursor:pointer;border-right:1px solid var(--steel-l)}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--navy);color:#fff}
+.rng{display:flex;align-items:center;gap:10px;font-size:13px;flex-wrap:wrap}
+.rng input[type=range]{accent-color:var(--accent);width:200px}
+.rng b{font-family:Consolas,monospace;color:var(--navy);min-width:48px}
+
+/* arcs */
+.arcs{max-width:100%;height:auto;font-family:Verdana,sans-serif}
+.arcs text{font-size:12px;fill:var(--navy)}
+.arcs text.q{cursor:pointer}
+.arcs text.q.sel{font-weight:700;fill:var(--accent)}
+.arcs text.pct{font-size:10px;fill:var(--muted)}
+
+/* bars */
+.bars{display:flex;flex-direction:column;gap:3px;font-size:12.5px}
+.bar-row{display:grid;grid-template-columns:90px 1fr 58px;gap:8px;align-items:center}
+.bar-row .bl{text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--navy)}
+.bar-row .bt{background:var(--mist);border-radius:3px;height:14px;overflow:hidden}
+.bar-row .bf{display:block;height:100%;background:var(--steel)}
+.bar-row .bv{font-family:Consolas,monospace;font-size:11.5px;color:var(--muted)}
+.bar-row.hl .bf{background:var(--navy)}
+.bar-row.hl .bl{font-weight:700}
+.bar-row.clk{cursor:pointer;border-radius:4px}
+.bar-row.clk:hover{background:#eaf4fc}
+.chart{width:100%;height:auto;display:block;font-family:Verdana,sans-serif}
+.chart .grid{stroke:#e3e9f0}
+.chart .tick{font-size:10px;fill:var(--muted)}
+.chart .axl{font-size:11px;fill:var(--navy)}
+
+/* misc */
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 12px}
+.flow .fs{border:1px solid var(--steel-l);border-radius:8px;padding:6px 10px;background:var(--mist-2);color:var(--navy);font-size:12.5px;cursor:pointer}
+.flow .fs:hover{border-color:var(--accent);background:#fff}
+.flow .fa{color:var(--steel)}
+.roles .role{border-radius:8px;padding:10px 12px;border:1px solid var(--steel-l);font-size:13px}
+.roles .role b{display:block;font-size:14px;color:var(--navy)}
+.roles .q{background:#eef5fc}.roles .k{background:#f3f6fa}.roles .v{background:#fbf5ee}
+.eq{font-family:Consolas,Menlo,monospace;font-size:12.5px;background:var(--mist-2);border-radius:6px;padding:8px 10px;overflow-x:auto;white-space:nowrap}
+.pecanvas{width:100%;height:260px;image-rendering:pixelated;border:1px solid var(--steel-l);border-radius:6px;display:block;cursor:crosshair}
+.simcanvas{width:100%;max-width:300px;aspect-ratio:1;image-rendering:pixelated;border:1px solid var(--steel-l);border-radius:6px;display:block}
+.readout{font-family:Consolas,monospace;font-size:12px;color:var(--navy);min-height:18px;margin-top:4px}
+.stat{display:inline-block;background:var(--mist);border-radius:6px;padding:4px 10px;margin:0 6px 6px 0;font-size:12.5px}
+.stat b{color:var(--navy)}
+.gen-seq{display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:var(--mist-2);border-radius:8px;min-height:48px;margin-bottom:10px}
+.jr{display:grid;grid-template-columns:minmax(150px,1.3fr) auto 70px 70px;gap:4px 12px;align-items:center;font-size:12.5px}
+.jr .h{font-weight:700;color:var(--navy);font-size:11.5px}
+.jr .lab{color:var(--navy)}
+.jr .lab.delta{font-style:italic;color:var(--muted)}
+.jr .num{font-family:Consolas,monospace;text-align:right}
+.strip{display:flex;gap:2px}
+.strip span{width:26px;height:20px;border-radius:3px;display:block}
+.quiz-q{margin-bottom:14px}
+.quiz-q .opts{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.quiz-q .opt{font:inherit;font-size:13.5px;text-align:left;background:#fff;border:1px solid var(--steel-l);border-radius:8px;padding:8px 12px;cursor:pointer;color:var(--ink)}
+.quiz-q .opt:hover{border-color:var(--navy)}
+.quiz-q .opt.right{background:#e9f6ee;border-color:var(--ok)}
+.quiz-q .opt.wrong{background:#fbecea;border-color:var(--bad)}
+.quiz-q .fb{margin-top:8px;font-size:13px}
+.pager{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:22px;padding-top:16px;border-top:1px solid var(--steel-l)}
+.pager .btn{white-space:normal;max-width:42%;text-align:center}
+#pager-info{font-size:12px;color:var(--muted);text-align:center}
+footer{border-top:1px solid var(--steel-l);background:var(--mist-2);font-size:12px;color:var(--muted)}
+footer .in{max-width:1380px;margin:0 auto;padding:16px 28px}
+.tip{position:fixed;z-index:50;pointer-events:none;background:var(--navy-d);color:#fff;font-family:Consolas,Menlo,monospace;font-size:12px;padding:4px 8px;border-radius:5px;opacity:0;transition:opacity .1s;white-space:nowrap}
+.katex-display{margin:.6em 0}
+.formula{position:relative}
+.katex .katex-mathml{width:1px;max-width:1px;overflow:hidden}
+
+@media (max-width:1100px){.ctl-in{grid-template-columns:1fr 1fr}.ctl-btns{grid-column:1/-1}}
+@media (max-width:1000px){
+  .layout{grid-template-columns:minmax(0,1fr)}
+  aside.diagram{position:static;max-width:380px;width:100%;margin:0 auto}
+}
+@media (max-width:720px){
+  .ctl-in{grid-template-columns:1fr;padding:12px 16px}
+  .hero-in{padding:26px 16px 20px}
+  .layout{padding:16px 16px 30px}
+  .grid2,.grid3{grid-template-columns:minmax(0,1fr)}
+  .hero .check{display:none}
+  .jr{grid-template-columns:1fr auto;}
+  .jr .num.cos,.jr .h.cos{display:none}
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <svg class="swoosh" viewBox="0 0 1200 260" preserveAspectRatio="none" aria-hidden="true">
+    <defs>
+      <linearGradient id="sw1" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#c3d1e2"/><stop offset=".7" stop-color="#dfe7f0" stop-opacity=".7"/><stop offset="1" stop-color="#eef3f8" stop-opacity="0"/></linearGradient>
+      <linearGradient id="sw2" x1="0" x2="1"><stop offset="0" stop-color="#eef3f8" stop-opacity="0"/><stop offset=".35" stop-color="#d3deea"/><stop offset="1" stop-color="#e6edf5"/></linearGradient>
+      <linearGradient id="ck1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e9eff6"/><stop offset=".55" stop-color="#9fb4cc"/><stop offset="1" stop-color="#5b7aa0"/></linearGradient>
+      <linearGradient id="ck2" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#8ea6c3"/><stop offset="1" stop-color="#dfe7f0"/></linearGradient>
+    </defs>
+    <path d="M-20,0 C140,40 300,150 420,262 L360,262 C260,160 120,70 -20,40Z" fill="url(#sw1)" opacity=".85"/>
+    <path d="M0,232 C320,170 760,150 1200,178 L1200,192 C760,166 330,190 0,250Z" fill="url(#sw2)"/>
+    <g class="check" opacity=".9">
+      <polygon points="40,118 104,118 178,196 148,224" fill="url(#ck1)"/>
+      <polygon points="148,224 178,196 262,140 232,140" fill="url(#ck2)"/>
+    </g>
+  </svg>
+  <div class="hero-in">
+    <h1>Transformer, peça por peça</h1>
+    <p class="sub">Playground interativo do artigo <i>Attention Is All You Need</i> (Vaswani et al., 2017)</p>
+    <p class="author">Bernardo Aflalo</p>
+  </div>
+</header>
+
+<section class="controls">
+  <div class="ctl-in">
+    <label class="fld"><span>Frase de origem <small>— entrada do encoder</small></span><input id="in-src" autocomplete="off" spellcheck="false"></label>
+    <label class="fld"><span>Frase de destino <small>— tradução usada para treinar o decoder</small></span><input id="in-tgt" autocomplete="off" spellcheck="false"></label>
+    <div class="ctl-btns">
+      <button id="btn-seed" class="btn" title="Gera uma nova inicialização aleatória de todos os pesos">🎲 Sortear pesos</button>
+      <button id="btn-reset" class="btn ghost">Restaurar exemplo</button>
+      <span id="seed-info" class="small muted"></span>
+    </div>
+  </div>
+</section>
+
+<nav class="stepper"><div class="stepper-in" id="stepper"></div></nav>
+
+<main class="layout">
+  <aside class="diagram">
+    <div class="dg-card">
+      <div class="dg-title">Arquitetura do Transformer</div>
+      <div id="diagram"></div>
+      <div class="dg-hint">Clique em um bloco para ir ao passo correspondente</div>
+    </div>
+  </aside>
+  <article>
+    <div id="content"></div>
+    <div class="pager">
+      <button id="prev" class="btn ghost">← Anterior</button>
+      <span id="pager-info"></span>
+      <button id="next" class="btn">Próximo →</button>
+    </div>
+  </article>
+</main>
+
+<footer><div class="in">
+  Baseado em Vaswani, A. et al. (2017). <a href="https://arxiv.org/abs/1706.03762" target="_blank" rel="noopener"><i>Attention Is All You Need</i></a>. NeurIPS 2017.
+  Material didático: o modelo deste playground é uma miniatura com pesos aleatórios (não treinado), mas executa exatamente as operações descritas no artigo.
+</div></footer>
+
+<div id="tip" class="tip"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   Configuração do modelo em miniatura
+   ===================================================================== */
+const D = 8, H = 2, DK = 4, DFF = 32, NL = 2, MAXT = 10;
+const PAPER = { N: 6, d: 512, dff: 2048, h: 8, dk: 64, V: 37000 };
+const DEF_SRC = 'o gato sentou no tapete', DEF_TGT = 'the cat sat on the mat';
+const BASE_VOCAB = ['<pad>','<s>','</s>','<unk>',
+  'o','a','os','as','um','uma','gato','cão','menino','menina','sentou','viu','comeu','leu','no','na','tapete','peixe','livro','casa','grande','pequeno','é',
+  'the','cat','dog','boy','girl','sat','saw','ate','read','on','mat','fish','book','house','big','small','is'];
+const SPECIAL = new Set(['<pad>','<s>','</s>','<unk>']);
+const DK_OPTS = [1,2,4,8,16,32,64,128,256,512];
+
+const S = {
+  step: 0, src: DEF_SRC, tgt: DEF_TGT, seed: 7,
+  layer: 0, head: 0, selQ: 1, selM: 1, selC: 1, scaleOn: true, maskOn: true,
+  embTok: 1, lnTok: 1, outPos: 1,
+  peP: 50, peD: 128, peSplit: false, dkIdx: 6, labSeed: 1, warmup: 4000, dmLR: 512, eps: 0.1, lsK: 8,
+  gen: ['<s>'], genLog: [], trackSide: 'enc', trackIdx: 1, quiz: {}
+};
+let R = null;
+
+/* =====================================================================
+   Utilidades
+   ===================================================================== */
+const $ = (s, el = document) => el.querySelector(s);
+const tx = String.raw;
+const m = s => '\\(' + s + '\\)';
+const M = s => `<div class="formula">$$${s}$$</div>`;
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function fmt(v, d = 2) {
+  if (v === -Infinity) return '−∞';
+  if (v === Infinity) return '∞';
+  if (Math.abs(v) < 0.5 * Math.pow(10, -d)) v = 0;
+  return v.toFixed(d).replace('-', '−');
+}
+const fmtInt = v => Math.round(v).toLocaleString('pt-BR');
+const pct = v => (v * 100).toFixed(1).replace('.', ',') + '%';
+const dl = (n, p = 'd') => Array.from({ length: n }, (_, j) => p + j);
+
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hashStr(s) { let h = 2166136261; for (const ch of s) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+function makeRng(seed) {
+  const u = mulberry32(seed >>> 0);
+  return { u, g() { let a = 0; while (a === 0) a = u(); return Math.sqrt(-2 * Math.log(a)) * Math.cos(2 * Math.PI * u()); } };
+}
+const randM = (rng, r, c, std) => Array.from({ length: r }, () => Array.from({ length: c }, () => rng.g() * std));
+const randV = (rng, n, std) => Array.from({ length: n }, () => rng.g() * std);
+
+/* ---------- álgebra ---------- */
+function matmul(A, B) {
+  const n = A.length, k = B.length, p = B[0].length;
+  const C = Array.from({ length: n }, () => new Array(p).fill(0));
+  for (let i = 0; i < n; i++) for (let t = 0; t < k; t++) { const a = A[i][t]; if (a === 0) continue; const Bt = B[t], Ci = C[i]; for (let j = 0; j < p; j++) Ci[j] += a * Bt[j]; }
+  return C;
+}
+const transpose = A => A[0].map((_, j) => A.map(r => r[j]));
+const addM = (A, B) => A.map((r, i) => r.map((v, j) => v + B[i][j]));
+const addBias = (A, b) => A.map(r => r.map((v, j) => v + b[j]));
+const scaleM = (A, s) => A.map(r => r.map(v => v * s));
+const relu = A => A.map(r => r.map(v => (v > 0 ? v : 0)));
+function softmax(r) {
+  const mx = Math.max(...r);
+  const e = r.map(v => (v === -Infinity ? 0 : Math.exp(v - mx)));
+  const s = e.reduce((a, b) => a + b, 0);
+  return e.map(v => v / s);
+}
+function layerNorm(X, g, b, eps = 1e-6) {
+  const mean = [], std = [];
+  const out = X.map(r => {
+    const mu = r.reduce((a, v) => a + v, 0) / r.length;
+    const va = r.reduce((a, v) => a + (v - mu) ** 2, 0) / r.length;
+    const sd = Math.sqrt(va + eps);
+    mean.push(mu); std.push(sd);
+    return r.map((v, j) => g[j] * (v - mu) / sd + b[j]);
+  });
+  return { out, mean, std };
+}
+const rowStats = r => { const mu = r.reduce((a, v) => a + v, 0) / r.length; return { mu, sd: Math.sqrt(r.reduce((a, v) => a + (v - mu) ** 2, 0) / r.length) }; };
+const norm = v => Math.sqrt(v.reduce((a, x) => a + x * x, 0));
+const cos = (a, b) => a.reduce((s, x, i) => s + x * b[i], 0) / (norm(a) * norm(b) || 1);
+
+/* ---------- codificação posicional ---------- */
+function peVal(pos, i, dm) {
+  const k = i - (i % 2);
+  const ang = pos / Math.pow(10000, k / dm);
+  return i % 2 === 0 ? Math.sin(ang) : Math.cos(ang);
+}
+const peMat = (n, dm) => Array.from({ length: n }, (_, p) => Array.from({ length: dm }, (_, i) => peVal(p, i, dm)));
+
+/* =====================================================================
+   Modelo
+   ===================================================================== */
+function attnParams(rng) {
+  const P = { Wq: [], Wk: [], Wv: [] }, gain = 1.2;
+  for (let i = 0; i < H; i++) {
+    P.Wq.push(randM(rng, D, DK, gain / Math.sqrt(D)));
+    P.Wk.push(randM(rng, D, DK, gain / Math.sqrt(D)));
+    P.Wv.push(randM(rng, D, DK, 1 / Math.sqrt(D)));
+  }
+  P.Wo = randM(rng, H * DK, D, 1 / Math.sqrt(H * DK));
+  return P;
+}
+const ffnParams = rng => ({ W1: randM(rng, D, DFF, Math.sqrt(2 / D)), b1: randV(rng, DFF, 0.1), W2: randM(rng, DFF, D, 1 / Math.sqrt(DFF)), b2: randV(rng, D, 0.05) });
+const lnParams = () => ({ g: new Array(D).fill(1), b: new Array(D).fill(0) });
+function initModel(seed) {
+  const rng = makeRng(seed * 7919 + 13);
+  const enc = [], dec = [];
+  for (let l = 0; l < NL; l++) enc.push({ att: attnParams(rng), ffn: ffnParams(rng), ln1: lnParams(), ln2: lnParams() });
+  for (let l = 0; l < NL; l++) dec.push({ self: attnParams(rng), cross: attnParams(rng), ffn: ffnParams(rng), ln1: lnParams(), ln2: lnParams(), ln3: lnParams() });
+  return { enc, dec };
+}
+function embedRow(word, seed) {
+  const rng = makeRng(hashStr(word) ^ Math.imul(seed, 2654435761));
+  return Array.from({ length: D }, () => rng.g() / Math.sqrt(D));
+}
+function mha(Xq, Xkv, P, causal) {
+  const heads = [];
+  const maskFn = (r, a) => r.map((v, b) => (causal && b > a ? -Infinity : v));
+  for (let i = 0; i < H; i++) {
+    const Q = matmul(Xq, P.Wq[i]), K = matmul(Xkv, P.Wk[i]), V = matmul(Xkv, P.Wv[i]);
+    const scores = matmul(Q, transpose(K));
+    const scaled = scaleM(scores, 1 / Math.sqrt(DK));
+    const masked = scaled.map(maskFn);
+    const W = masked.map(softmax);
+    const Wun = scores.map(maskFn).map(softmax);
+    const Wnomask = scaled.map(softmax);
+    const out = matmul(W, V);
+    heads.push({ Q, K, V, scores, scaled, masked, W, Wun, Wnomask, out });
+  }
+  const concat = Xq.map((_, r) => heads.flatMap(hd => hd.out[r]));
+  return { heads, concat, out: matmul(concat, P.Wo) };
+}
+function ffn(X, F) { const pre = addBias(matmul(X, F.W1), F.b1); const hid = relu(pre); return { pre, hid, out: addBias(matmul(hid, F.W2), F.b2) }; }
+function encLayer(X, L) {
+  const att = mha(X, X, L.att, false);
+  const res1 = addM(X, att.out), n1 = layerNorm(res1, L.ln1.g, L.ln1.b);
+  const f = ffn(n1.out, L.ffn);
+  const res2 = addM(n1.out, f.out), n2 = layerNorm(res2, L.ln2.g, L.ln2.b);
+  return { X, att, res1, n1, f, res2, n2, out: n2.out };
+}
+function decLayer(Y, mem, L) {
+  const sa = mha(Y, Y, L.self, true);
+  const r1 = addM(Y, sa.out), n1 = layerNorm(r1, L.ln1.g, L.ln1.b);
+  const ca = mha(n1.out, mem, L.cross, false);
+  const r2 = addM(n1.out, ca.out), n2 = layerNorm(r2, L.ln2.g, L.ln2.b);
+  const f = ffn(n2.out, L.ffn);
+  const r3 = addM(n2.out, f.out), n3 = layerNorm(r3, L.ln3.g, L.ln3.b);
+  return { Y, sa, r1, n1, ca, r2, n2, f, r3, n3, out: n3.out };
+}
+const toks = s => (s.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).slice(0, MAXT);
+
+function run() {
+  const src = toks(S.src), tgt = toks(S.tgt);
+  const srcT = src.length ? src : ['<unk>'], tgtT = tgt.length ? tgt : ['<unk>'];
+  const vocab = [...BASE_VOCAB];
+  for (const w of [...srcT, ...tgtT]) if (!vocab.includes(w)) vocab.push(w);
+  const id = w => vocab.indexOf(w);
+  const Emb = vocab.map(w => embedRow(w, S.seed));
+  const W = initModel(S.seed);
+  const sq = Math.sqrt(D);
+  const embS = srcT.map(w => Emb[id(w)]), scS = scaleM(embS, sq), peS = peMat(srcT.length, D), X0 = addM(scS, peS);
+  let X = X0; const enc = [];
+  for (const L of W.enc) { const r = encLayer(X, L); enc.push(r); X = r.out; }
+  const mem = X;
+  const decIn = ['<s>', ...tgtT], labels = [...tgtT, '</s>'];
+  const embT = decIn.map(w => Emb[id(w)]), scT = scaleM(embT, sq), peT = peMat(decIn.length, D), Y0 = addM(scT, peT);
+  let Y = Y0; const dec = [];
+  for (const L of W.dec) { const r = decLayer(Y, mem, L); dec.push(r); Y = r.out; }
+  const logits = matmul(Y, transpose(Emb));
+  const probs = logits.map(softmax);
+  return { src: srcT, tgt: tgtT, vocab, id, Emb, W, embS, scS, peS, X0, enc, mem, decIn, labels, embT, scT, peT, Y0, dec, Yf: Y, logits, probs };
+}
+function decodeProbs(seq) {
+  const sq = Math.sqrt(D);
+  let Y = addM(scaleM(seq.map(w => R.Emb[R.id(w)]), sq), peMat(seq.length, D));
+  for (const L of R.W.dec) Y = decLayer(Y, R.mem, L).out;
+  return softmax(matmul([Y[Y.length - 1]], transpose(R.Emb))[0]);
+}
+function countParams() {
+  const att = 4 * D * D, f = 2 * D * DFF + DFF + D, ln = 2 * D;
+  const enc = NL * (att + f + 2 * ln), dec = NL * (2 * att + f + 3 * ln);
+  return { emb: R.vocab.length * D, enc, dec, total: R.vocab.length * D + enc + dec };
+}
+
+/* =====================================================================
+   Componentes visuais
+   ===================================================================== */
+const NAVY = [18, 57, 107], AMB = [217, 130, 43], WHITE = [255, 255, 255];
+const mixRGB = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+const rgb = c => `rgb(${c.join(',')})`;
+function colorOf(v, mx, seq) {
+  let t = v / mx; t = Math.max(-1, Math.min(1, t));
+  if (seq) t = Math.pow(Math.max(0, t), 0.75);
+  const c = t >= 0 ? mixRGB(WHITE, NAVY, t) : mixRGB(WHITE, AMB, -t);
+  return [c, Math.abs(t) > 0.55 ? '#fff' : '#1d2a3a'];
+}
+function heat(Mx, o = {}) {
+  const nr = Mx.length, nc = Mx[0].length;
+  const rows = o.rows || Mx.map((_, i) => String(i));
+  const cols = o.cols || dl(nc);
+  let mx = o.max;
+  if (mx == null) { mx = 0; for (const r of Mx) for (const v of r) if (isFinite(v)) mx = Math.max(mx, Math.abs(v)); if (!mx) mx = 1; }
+  const vals = o.vals ?? (nc <= 10);
+  const cw = o.cw ?? (vals ? 44 : (nc > 40 ? 11 : 15));
+  const ch = o.ch ?? (vals ? 25 : (nc > 40 ? 15 : 18));
+  const showCols = o.colLabels ?? (nc <= 12);
+  let h = `<div class="hm-wrap">`;
+  if (o.title) h += `<div class="hm-title">${o.title}${o.shape ? ' ' + o.shape : ''}</div>`;
+  h += `<div class="hm-scroll"><div class="hm" style="grid-template-columns:auto repeat(${nc},${cw}px);grid-auto-rows:${ch}px">`;
+  if (showCols) { h += `<div></div>`; for (let j = 0; j < nc; j++) h += `<div class="hc" title="${esc(cols[j])}">${esc(cols[j])}</div>`; }
+  for (let i = 0; i < nr; i++) {
+    const hl = o.hlRow === i;
+    h += `<div class="hr${hl ? ' hl' : ''}${o.rowAct ? ' clk' : ''}"${o.rowAct ? ` data-act="${o.rowAct}" data-v="${i}"` : ''}>${esc(rows[i])}</div>`;
+    for (let j = 0; j < nc; j++) {
+      const v = Mx[i][j];
+      const tip = `${esc(rows[i])} · ${esc(cols[j])}: `;
+      if (v === -Infinity) { h += `<div class="c ninf" data-tip="${tip}−∞ (mascarado)">${vals ? '−∞' : ''}</div>`; continue; }
+      const [bg, fg] = colorOf(v, mx, o.seq);
+      const z = o.zero && v === 0;
+      h += `<div class="c${hl ? ' hl' : ''}${z ? ' zero' : ''}" style="background:${rgb(bg)};color:${fg}" data-tip="${tip}${fmt(v, 4)}">${vals ? fmt(v, o.dec ?? 2) : ''}</div>`;
+    }
+  }
+  h += `</div></div>`;
+  if (o.caption) h += `<div class="hm-cap">${o.caption}</div>`;
+  return h + `</div>`;
+}
+const sh = (toy, paper) => `<span class="shape">${toy}</span>${paper ? `<span class="shape paper">paper: ${paper}</span>` : ''}`;
+const note = (kind, title, body) => `<div class="note ${kind}"><div class="note-t">${title}</div>${body}</div>`;
+const card = (title, body, cls = '') => `<div class="card ${cls}">${title ? `<h3>${title}</h3>` : ''}${body}</div>`;
+function tokChips(list, o = {}) {
+  return `<div class="toks">${list.map((w, i) => `<span class="tok${SPECIAL.has(w) ? ' sp' : ''}${o.act ? ' clk' : ''}${o.sel === i ? ' on' : ''}"${o.act ? ` data-act="${o.act}" data-v="${i}"` : ''}>${esc(w)}${o.ids !== false ? `<span class="id">${o.label ? o.label(w, i) : 'id ' + R.id(w)}</span>` : ''}</span>`).join('')}</div>`;
+}
+function seg(act, cur, opts) { return `<span class="seg">${opts.map(([v, l]) => `<button class="${v === cur ? 'on' : ''}" data-act="${act}" data-v="${v}">${l}</button>`).join('')}</span>`; }
+const layerSeg = (withHead = true, label = 'Camada') => `<div class="ctrl-row"><span class="ctrl-lbl">${label}</span>${seg('layer', S.layer, Array.from({ length: NL }, (_, l) => [l, String(l + 1)]))}${withHead ? `<span class="ctrl-lbl">Cabeça</span>${seg('head', S.head, Array.from({ length: H }, (_, h) => [h, String(h + 1)]))}` : ''}<span class="small muted">o paper tem ${PAPER.N} camadas e ${PAPER.h} cabeças; aqui ${NL} e ${H}</span></div>`;
+function arcs(qT, kT, A, sel, act) {
+  const n = qT.length, k = kT.length, step = 27, top = 16, rowsN = Math.max(n, k);
+  const Hh = rowsN * step + top, W = 380, lx = 112, rx = W - 112;
+  const yq = i => top + i * step + (rowsN - n) * step / 2, yk = j => top + j * step + (rowsN - k) * step / 2;
+  let s = `<svg class="arcs" viewBox="0 0 ${W} ${Hh}" width="${W}">`;
+  const line = (i, j, on) => {
+    const w = A[i][j]; if (w < 0.005) return '';
+    return `<line x1="${lx + 6}" y1="${yq(i) - 4}" x2="${rx - 6}" y2="${yk(j) - 4}" stroke="${on ? '#12396b' : '#8aa2bf'}" stroke-opacity="${on ? Math.min(1, 0.12 + w) : 0.05 + 0.25 * w}" stroke-width="${on ? 0.8 + 8 * w : 0.6 + 2 * w}" stroke-linecap="round"/>`;
+  };
+  for (let i = 0; i < n; i++) if (sel !== i) for (let j = 0; j < k; j++) s += line(i, j, sel == null);
+  if (sel != null && sel < n) for (let j = 0; j < k; j++) s += line(sel, j, true);
+  qT.forEach((w, i) => { s += `<text class="q${sel === i ? ' sel' : ''}" x="${lx}" y="${yq(i)}" text-anchor="end" data-act="${act}" data-v="${i}">${esc(w)}</text>`; });
+  kT.forEach((w, j) => { s += `<text x="${rx}" y="${yk(j)}">${esc(w)}</text>`; if (sel != null && sel < n) s += `<text class="pct" x="${rx + 8 + w.length * 7.5}" y="${yk(j)}">${(A[sel][j] * 100).toFixed(0)}%</text>`; });
+  s += `<text class="pct" x="${lx}" y="${Hh - 1}" text-anchor="end">consulta (query)</text><text class="pct" x="${rx}" y="${Hh - 1}">chave (key)</text>`;
+  return s + `</svg>`;
+}
+function bars(items, o = {}) {
+  const mx = o.max ?? Math.max(...items.map(i => i.v), 1e-9);
+  return `<div class="bars">${items.map(it => `<div class="bar-row${it.hl ? ' hl' : ''}${it.act ? ' clk' : ''}"${it.act ? ` data-act="${it.act}" data-v="${esc(it.val)}"` : ''}><span class="bl" title="${esc(it.label)}">${esc(it.label)}</span><span class="bt"><span class="bf" style="width:${Math.max(0, it.v) / mx * 100}%"></span></span><span class="bv">${o.fmt ? o.fmt(it.v) : fmt(it.v, 3)}</span></div>`).join('')}</div>`;
+}
+function lineChart(series, o = {}) {
+  const W = o.w || 600, Hh = o.h || 230, pl = o.pl || 56, pr = 14, pt = 12, pb = 38;
+  const all = series.flatMap(s => s.pts);
+  const x0 = o.x0 ?? Math.min(...all.map(p => p[0])), x1 = o.x1 ?? Math.max(...all.map(p => p[0]));
+  const y0 = o.y0 ?? Math.min(...all.map(p => p[1])), y1 = o.y1 ?? Math.max(...all.map(p => p[1]));
+  const X = v => pl + (v - x0) / ((x1 - x0) || 1) * (W - pl - pr), Y = v => Hh - pb - (v - y0) / ((y1 - y0) || 1) * (Hh - pt - pb);
+  const fx = o.fx || (v => fmt(v, 0)), fy = o.fy || (v => fmt(v, 1));
+  let s = `<svg viewBox="0 0 ${W} ${Hh}" class="chart">`;
+  for (let k = 0; k <= 4; k++) {
+    const yv = y0 + (y1 - y0) * k / 4, xv = x0 + (x1 - x0) * k / 4;
+    s += `<line class="grid" x1="${pl}" x2="${W - pr}" y1="${Y(yv)}" y2="${Y(yv)}"/><text class="tick" x="${pl - 6}" y="${Y(yv) + 3}" text-anchor="end">${fy(yv)}</text><text class="tick" x="${X(xv)}" y="${Hh - pb + 15}" text-anchor="middle">${fx(xv)}</text>`;
+  }
+  if (o.xl) s += `<text class="axl" x="${(pl + W - pr) / 2}" y="${Hh - 4}" text-anchor="middle">${o.xl}</text>`;
+  if (o.yl) s += `<text class="axl" transform="translate(12 ${(pt + Hh - pb) / 2}) rotate(-90)" text-anchor="middle">${o.yl}</text>`;
+  series.forEach(se => { s += `<polyline fill="none" stroke="${se.c}" stroke-width="${se.w || 2}"${se.dash ? ` stroke-dasharray="${se.dash}"` : ''} points="${se.pts.map(p => X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1)).join(' ')}"/>`; });
+  (o.marks || []).forEach(mk => { s += `<circle cx="${X(mk[0])}" cy="${Y(mk[1])}" r="4.5" fill="${mk[2] || '#1288cf'}"/>${mk[3] ? `<text class="tick" x="${X(mk[0]) + 8}" y="${Y(mk[1]) - 6}" style="fill:#12396b;font-weight:700">${mk[3]}</text>` : ''}`; });
+  s += `</svg>`;
+  const leg = series.filter(se => se.label).map(se => `<span><span class="sw" style="background:${se.c};height:4px"></span>${se.label}</span>`).join('');
+  return s + (leg ? `<div class="legend">${leg}</div>` : '');
+}
+function colChart(series, labels, o = {}) {
+  const W = o.w || 460, Hh = o.h || 170, pl = 40, pb = 22, pt = 10, pr = 8;
+  let mx = 0; series.forEach(se => se.v.forEach(v => (mx = Math.max(mx, Math.abs(v))))); mx = mx || 1;
+  const n = labels.length, gw = (W - pl - pr) / n, bw = gw * 0.8 / series.length;
+  const y0 = pt + (Hh - pt - pb) / 2, sc = (Hh - pt - pb) / 2 / mx;
+  let s = `<svg viewBox="0 0 ${W} ${Hh}" class="chart" style="max-width:${W}px">`;
+  s += `<line class="grid" x1="${pl}" x2="${W - pr}" y1="${pt}" y2="${pt}"/><line class="grid" x1="${pl}" x2="${W - pr}" y1="${Hh - pb}" y2="${Hh - pb}"/><line x1="${pl}" x2="${W - pr}" y1="${y0}" y2="${y0}" stroke="#8aa2bf"/>`;
+  s += `<text class="tick" x="${pl - 5}" y="${pt + 4}" text-anchor="end">${fmt(mx, 1)}</text><text class="tick" x="${pl - 5}" y="${y0 + 3}" text-anchor="end">0</text><text class="tick" x="${pl - 5}" y="${Hh - pb + 3}" text-anchor="end">${fmt(-mx, 1)}</text>`;
+  series.forEach((se, k) => se.v.forEach((v, i) => {
+    const x = pl + i * gw + gw * 0.1 + k * bw, hg = Math.abs(v) * sc;
+    s += `<rect x="${x.toFixed(1)}" y="${(v >= 0 ? y0 - hg : y0).toFixed(1)}" width="${(bw - 1.5).toFixed(1)}" height="${Math.max(hg, 0.6).toFixed(1)}" fill="${se.c}" rx="1.5"><title>${se.name} · ${labels[i]}: ${fmt(v, 3)}</title></rect>`;
+  }));
+  labels.forEach((l, i) => { s += `<text class="tick" x="${pl + i * gw + gw / 2}" y="${Hh - 6}" text-anchor="middle">${l}</text>`; });
+  s += `</svg><div class="legend">${series.map(se => `<span><span class="sw" style="background:${se.c}"></span>${se.name}</span>`).join('')}</div>`;
+  return s;
+}
+function strip(v, mx) { return `<div class="strip">${v.map((x, j) => { const [bg] = colorOf(x, mx); return `<span style="background:${rgb(bg)}" data-tip="d${j}: ${fmt(x, 3)}"></span>`; }).join('')}</div>`; }
+const clampSel = (key, n) => { if (S[key] == null || S[key] >= n) S[key] = Math.min(1, n - 1); return S[key]; };
+
+/* =====================================================================
+   Diagrama da arquitetura (inspirado na Figura 1 do paper)
+   ===================================================================== */
+const DB = [
+  ['tok-enc', 20, 598, 140, 26, 'Tokens de entrada', 'io'],
+  ['emb-enc', 20, 550, 140, 30, 'Input Embedding', 'emb'],
+  ['tok-dec', 185, 598, 140, 26, 'Saídas (deslocadas →)', 'io'],
+  ['emb-dec', 185, 550, 140, 30, 'Output Embedding', 'emb'],
+  ['enc-mha', 34, 452, 116, 38, 'Multi-Head\nAttention', 'att'],
+  ['enc-an1', 34, 418, 116, 22, 'Add & Norm', 'norm'],
+  ['enc-ff', 34, 368, 116, 34, 'Feed Forward', 'ff'],
+  ['enc-an2', 34, 334, 116, 22, 'Add & Norm', 'norm'],
+  ['dec-mmha', 197, 452, 116, 38, 'Masked Multi-Head\nAttention', 'att'],
+  ['dec-an1', 197, 418, 116, 22, 'Add & Norm', 'norm'],
+  ['dec-mha', 197, 362, 116, 38, 'Multi-Head\nAttention', 'att'],
+  ['dec-an2', 197, 328, 116, 22, 'Add & Norm', 'norm'],
+  ['dec-ff', 197, 278, 116, 34, 'Feed Forward', 'ff'],
+  ['dec-an3', 197, 244, 116, 22, 'Add & Norm', 'norm'],
+  ['linear', 205, 166, 100, 26, 'Linear', 'out'],
+  ['softmax', 205, 122, 100, 26, 'Softmax', 'out'],
+  ['probs', 185, 62, 140, 32, 'Probabilidades\nde saída', 'io'],
+];
+function diagramSVG() {
+  let s = `<svg viewBox="0 54 346 576" xmlns="http://www.w3.org/2000/svg"><defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#12396b"/></marker><marker id="ahs" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8aa2bf"/></marker></defs>`;
+  s += `<rect class="frame" data-blk="enc-frame" x="22" y="322" width="140" height="180" rx="10"/><rect class="frame" data-blk="dec-frame" x="187" y="232" width="138" height="270" rx="10"/>`;
+  s += `<text class="dg-lbl" x="28" y="332">ENCODER</text><text class="dg-lbl" x="193" y="242">DECODER</text>`;
+  s += `<text class="dg-lbl" x="2" y="420" style="font-size:12px;cursor:pointer" data-blk="enc-frame">N×</text><text class="dg-lbl" x="328" y="372" style="font-size:12px">×N</text>`;
+  const A = (d, cls = '', id = '') => `<path class="ar ${cls}" d="${d}" marker-end="url(#${cls.includes('res') ? 'ahs' : 'ah'})"${id ? ` data-blk="${id}"` : ''}/>`;
+  // encoder
+  s += A('M90,598 V583') + A('M90,550 V528');
+  s += A('M90,505 V492') + A('M90,498 H62 V492') + A('M90,498 H118 V492');
+  s += A('M90,498 H27 V429 H32', 'res') + A('M90,452 V442') + A('M90,418 V404') + A('M90,411 H27 V345 H32', 'res') + A('M90,368 V358');
+  s += A('M90,334 V308 H172 V412 H222 V402', 'link', 'enc-link');
+  s += `<text class="dg-txt" x="98" y="303">memória → K, V</text>`;
+  // decoder
+  s += A('M255,598 V583') + A('M255,550 V528');
+  s += A('M255,505 V492') + A('M255,498 H226 V492') + A('M255,498 H284 V492');
+  s += A('M255,498 H319 V429 H315', 'res') + A('M255,452 V442') + A('M290,418 V402') + A('M290,411 H319 V339 H315', 'res');
+  s += `<text class="dg-txt" x="294" y="410">Q</text>`;
+  s += A('M255,362 V352') + A('M255,328 V314') + A('M255,321 H319 V255 H315', 'res') + A('M255,278 V268') + A('M255,244 V194') + A('M255,166 V150') + A('M255,122 V96');
+  // codificação posicional
+  const pe = (id, cx, wx) => `<g class="pe-g" data-blk="${id}"><circle cx="${cx}" cy="515" r="10"/><path class="pl" d="M${cx - 6},515 H${cx + 6} M${cx},509 V521"/><path class="wave" d="M${wx},515 q4,-9 8,0 t8,0 t8,0 t8,0"/><text class="dg-txt" x="${wx + 16}" y="533" text-anchor="middle">Posicional</text><line x1="${wx < cx ? wx + 34 : wx - 2}" y1="515" x2="${wx < cx ? cx - 11 : cx + 11}" y2="515" stroke="#12396b" stroke-width="1"/></g>`;
+  s += pe('pe-enc', 90, 28) + pe('pe-dec', 255, 282);
+  for (const [id, x, y, w, h, label, cls] of DB) {
+    const lines = label.split('\n'), cy = y + h / 2, lh = 11.5;
+    const t = lines.map((l, k) => `<tspan x="${x + w / 2}" y="${(cy + (k - (lines.length - 1) / 2) * lh + 3.5).toFixed(1)}">${esc(l)}</tspan>`).join('');
+    s += `<g class="blk ${cls}" data-blk="${id}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6"/><text>${t}</text></g>`;
+  }
+  s += `<text class="dg-txt" x="10" y="120">Cada bloco é uma</text><text class="dg-txt" x="10" y="132">transformação aplicada</text><text class="dg-txt" x="10" y="144">aos vetores dos tokens.</text>`;
+  s += `<text class="dg-txt" x="10" y="166">Setas tracejadas =</text><text class="dg-txt" x="10" y="178">conexões residuais.</text>`;
+  return s + `</svg>`;
+}
+
+/* =====================================================================
+   Passos
+   ===================================================================== */
+const STEPS = [
+  { id: 'visao-geral', g: 'Início', t: 'Visão geral', blocks: [], k: 'O Transformer transforma vetores de tokens, camada após camada, usando só atenção + redes simples.', r: stepOverview },
+  { id: 'tokenizacao', g: 'Entrada', t: 'Tokenização', blocks: ['tok-enc', 'tok-dec'], k: 'Texto → lista de tokens → lista de números inteiros (IDs).', r: stepTokens },
+  { id: 'embedding', g: 'Entrada', t: 'Embedding', blocks: ['emb-enc', 'emb-dec'], k: 'Cada ID vira um vetor de d_model números, lido de uma tabela aprendida.', r: stepEmbedding },
+  { id: 'posicao', g: 'Entrada', t: 'Codificação posicional', blocks: ['pe-enc', 'pe-dec'], k: 'Somamos a cada vetor uma "assinatura" da sua posição, feita de senos e cossenos.', r: stepPE },
+  { id: 'qkv', g: 'Encoder', t: 'Atenção: Q, K e V', blocks: ['enc-mha'], k: 'Cada vetor é projetado em três papéis: consulta (Q), chave (K) e valor (V).', r: stepQKV },
+  { id: 'atencao', g: 'Encoder', t: 'Scaled dot-product attention', blocks: ['enc-mha'], k: 'Cada token vira uma média ponderada dos valores de todos os tokens; os pesos vêm de Q·K.', r: stepAttention },
+  { id: 'multi-head', g: 'Encoder', t: 'Multi-head attention', blocks: ['enc-mha'], k: 'Várias atenções em paralelo, concatenadas e misturadas por uma matriz W<sup>O</sup>.', r: stepMultiHead },
+  { id: 'add-norm', g: 'Encoder', t: 'Add & Norm', blocks: ['enc-an1', 'enc-an2'], k: 'Soma a entrada de volta (residual) e normaliza cada token (LayerNorm).', r: stepAddNorm },
+  { id: 'ffn', g: 'Encoder', t: 'Feed-forward', blocks: ['enc-ff'], k: 'Uma rede de 2 camadas aplicada a cada token, separadamente.', r: stepFFN },
+  { id: 'pilha-encoder', g: 'Encoder', t: 'Pilha de N camadas', blocks: ['enc-frame'], k: 'O bloco se repete N vezes; a saída final é a "memória" do encoder.', r: stepEncStack },
+  { id: 'entrada-decoder', g: 'Decoder', t: 'Entrada do decoder', blocks: ['tok-dec', 'emb-dec', 'pe-dec'], k: 'A tradução entra deslocada uma posição: cada posição deve prever a próxima palavra.', r: stepDecInput },
+  { id: 'mascara', g: 'Decoder', t: 'Masked self-attention', blocks: ['dec-mmha', 'dec-an1'], k: 'Uma máscara impede que cada posição olhe para palavras futuras.', r: stepMasked },
+  { id: 'cross-attention', g: 'Decoder', t: 'Cross-attention', blocks: ['dec-mha', 'dec-an2', 'dec-ff', 'dec-an3', 'enc-link'], k: 'O decoder faz perguntas (Q) à memória do encoder (K, V).', r: stepCross },
+  { id: 'saida', g: 'Saída', t: 'Linear + Softmax', blocks: ['linear', 'softmax', 'probs'], k: 'Cada vetor final vira uma distribuição de probabilidade sobre o vocabulário.', r: stepOutput },
+  { id: 'treinamento', g: 'Treino', t: 'Treinamento', blocks: [], k: 'Ajustamos todos os pesos para aumentar a probabilidade da palavra correta.', r: stepTraining },
+  { id: 'geracao', g: 'Saída', t: 'Geração token a token', blocks: ['probs', 'dec-frame'], k: 'Na inferência, o modelo realimenta suas próprias previsões, uma palavra por vez.', r: stepGeneration },
+  { id: 'jornada', g: 'Resumo', t: 'A jornada de um token', blocks: [], k: 'Todas as transformações, do embedding à saída, para um único token.', r: stepJourney },
+  { id: 'quiz', g: 'Resumo', t: 'Teste rápido', blocks: [], k: 'Confira se as ideias principais ficaram claras.', r: stepQuiz },
+];
+const goStep = id => STEPS.findIndex(s => s.id === id);
+
+/* ---------- 0. visão geral ---------- */
+function stepOverview() {
+  const np = countParams();
+  const flowItems = [['Texto', 'tokenizacao'], ['Tokens / IDs', 'tokenizacao'], ['Embeddings', 'embedding'], ['+ Posição', 'posicao'], ['Encoder ×N', 'qkv'], ['Decoder ×N', 'entrada-decoder'], ['Linear + Softmax', 'saida'], ['Próximo token', 'geracao']];
+  return `
+<p class="lead">Em 2017, oito pesquisadores do Google publicaram <a href="https://arxiv.org/abs/1706.03762" target="_blank" rel="noopener"><i>Attention Is All You Need</i></a>. O artigo propôs o <b>Transformer</b>: uma arquitetura para tradução automática que abandona as redes recorrentes (RNN/LSTM) e usa <b>apenas mecanismos de atenção</b>. Ela é a base de praticamente todos os modelos de linguagem atuais — BERT, GPT, Claude, Gemini, Llama.</p>
+<div class="grid2">
+  ${card('A tarefa', `<p>Traduzir frases. No paper: inglês → alemão e inglês → francês. Neste playground: <b>português → inglês</b>.</p><p>O modelo tem duas metades:</p><ul><li><b>Encoder</b> (coluna da esquerda no diagrama): lê a frase de origem inteira e produz um vetor "contextualizado" para cada token.</li><li><b>Decoder</b> (coluna da direita): escreve a tradução um token por vez, consultando o encoder.</li></ul>`)}
+  ${card('Por que foi uma revolução?', `<ul><li>Uma <b>RNN</b> lê palavra por palavra: o passo 50 precisa esperar o passo 49. Isso é lento de treinar, e a informação de palavras distantes "desbota" pelo caminho.</li><li>O <b>Transformer</b> processa todas as posições <b>ao mesmo tempo</b> (ótimo para GPUs) e qualquer palavra se conecta diretamente a qualquer outra em um único passo.</li></ul><p class="small muted">No paper, ele bateu o estado da arte em tradução treinando por uma fração do custo dos modelos anteriores.</p>`)}
+</div>
+${card('O caminho dos dados', `<div class="flow">${flowItems.map(([t, id], i) => `${i ? '<span class="fa">→</span>' : ''}<span class="fs" data-act="goto" data-v="${goStep(id)}">${t}</span>`).join('')}</div><p class="small muted">Do embedding até a saída, o "objeto" que circula pelo modelo é sempre uma <b>matriz com uma linha por token</b> (n × d<sub>model</sub>). Cada bloco recebe essa matriz e devolve outra do mesmo formato — e é exatamente isso que vamos acompanhar, com números, em cada passo.</p>`)}
+<div class="grid2">
+${card('Hiperparâmetros', `<div class="tbl-wrap"><table class="tbl"><tr><th></th><th class="num">Paper (base)</th><th class="num">Paper (big)</th><th class="num">Playground</th></tr>
+<tr><td>Camadas N (encoder e decoder)</td><td class="num">6</td><td class="num">6</td><td class="num">${NL}</td></tr>
+<tr><td>d<sub>model</sub> (tamanho de cada vetor)</td><td class="num">512</td><td class="num">1024</td><td class="num">${D}</td></tr>
+<tr><td>d<sub>ff</sub> (camada interna da FFN)</td><td class="num">2048</td><td class="num">4096</td><td class="num">${DFF}</td></tr>
+<tr><td>h (cabeças de atenção)</td><td class="num">8</td><td class="num">16</td><td class="num">${H}</td></tr>
+<tr><td>d<sub>k</sub> = d<sub>v</sub> = d<sub>model</sub>/h</td><td class="num">64</td><td class="num">64</td><td class="num">${DK}</td></tr>
+<tr><td>Dropout P<sub>drop</sub></td><td class="num">0,1</td><td class="num">0,3</td><td class="num">— (inferência)</td></tr>
+<tr><td>Vocabulário V</td><td class="num">~37.000</td><td class="num">~37.000</td><td class="num">${R.vocab.length}</td></tr>
+<tr><td>Parâmetros</td><td class="num">65 M</td><td class="num">213 M</td><td class="num">${fmtInt(np.total)}</td></tr></table></div>`)}
+${card('Atenção × recorrência (Tabela 1 do paper)', `<div class="tbl-wrap"><table class="tbl"><tr><th>Camada</th><th>Custo por camada</th><th>Operações sequenciais</th><th>Caminho máximo entre 2 palavras</th></tr>
+<tr class="hl"><td>Self-attention</td><td>O(n²·d)</td><td>O(1)</td><td>O(1)</td></tr>
+<tr><td>Recorrente (RNN)</td><td>O(n·d²)</td><td>O(n)</td><td>O(n)</td></tr>
+<tr><td>Convolucional</td><td>O(k·n·d²)</td><td>O(1)</td><td>O(log<sub>k</sub> n)</td></tr></table></div>
+<p class="small muted">n = tamanho da frase, d = dimensão dos vetores, k = tamanho do kernel. "Operações sequenciais" mede o quanto dá para paralelizar; "caminho máximo" mede quantos passos a informação percorre para ligar duas palavras quaisquer — quanto menor, mais fácil aprender dependências de longa distância.</p>`)}
+</div>
+${card('Como usar este playground', `<ul>
+<li>Navegue pelos passos com os botões no fim da página, com as teclas <b>← →</b>, pelas etiquetas no topo ou clicando nos <b>blocos do diagrama</b>.</li>
+<li>Edite as frases no topo da página: tudo é recalculado na hora.</li>
+<li>Passe o mouse sobre qualquer célula de matriz para ver o valor exato.</li>
+<li>O modelo aqui é uma <b>miniatura</b> (d<sub>model</sub> = ${D}, ${H} cabeças, ${NL} camadas) com <b>pesos aleatórios — ele não foi treinado</b>. As operações são exatamente as do paper, mas os números não têm significado linguístico. Use <b>🎲 Sortear pesos</b> para ver outra inicialização.</li></ul>
+<div class="legend"><span><span class="sw" style="background:linear-gradient(90deg,#fff,#12396b)"></span>valor positivo</span><span><span class="sw" style="background:linear-gradient(90deg,#fff,#d9822b)"></span>valor negativo</span><span><span class="sw" style="background:repeating-linear-gradient(45deg,#e7ebf0,#e7ebf0 3px,#f6f8fa 3px,#f6f8fa 6px)"></span>mascarado (−∞)</span></div>`)}`;
+}
+
+/* ---------- 1. tokenização ---------- */
+function stepTokens() {
+  const used = new Set([...R.src, ...R.decIn, ...R.labels]);
+  return `
+<p class="lead">Redes neurais não leem texto: elas operam sobre números. O primeiro passo é quebrar a frase em <b>tokens</b> (pedaços de texto) e trocar cada token pelo seu <b>ID</b> — a posição dele em um vocabulário fixo.</p>
+${card(`Frase de origem → entrada do encoder ${sh('n = ' + R.src.length + ' tokens')}`, `<p class="small muted">"${esc(S.src)}"</p>${tokChips(R.src)}<div class="eq">[${R.src.map(w => R.id(w)).join(', ')}]</div>`)}
+${card(`Frase de destino → usada pelo decoder ${sh('m = ' + R.tgt.length + ' tokens')}`, `<p class="small muted">"${esc(S.tgt)}"</p>${tokChips(R.tgt)}<div class="eq">[${R.tgt.map(w => R.id(w)).join(', ')}]</div><p class="small muted" style="margin-top:8px">Repare: palavras repetidas (como "the") recebem o <b>mesmo ID</b>.</p>`)}
+${card(`Vocabulário do playground ${sh('V = ' + R.vocab.length, '~37.000')}`, `<div class="toks vocab">${R.vocab.map(w => `<span class="tok${SPECIAL.has(w) ? ' sp' : ''}${used.has(w) ? ' used' : ''}">${esc(w)}<span class="id">${R.id(w)}</span></span>`).join('')}</div><p class="small muted">Em destaque: tokens usados nas frases atuais. O vocabulário é <b>compartilhado</b> entre os dois idiomas (como no paper) — repare que "a" serve tanto ao português quanto ao inglês.</p>`)}
+<div class="grid2">
+${note('paper', 'No paper', `<p>Os autores usaram <b>byte-pair encoding (BPE)</b>: um vocabulário de ~37.000 <i>subpalavras</i> compartilhado entre inglês e alemão (e 32.000 word-pieces para inglês–francês). Palavras raras são quebradas em pedaços frequentes, por exemplo <code>tapetes</code> → <code>tapete</code> + <code>s</code>. Assim, qualquer palavra pode ser representada sem um vocabulário gigante.</p>`)}
+${note('warn', 'Simplificação deste playground', `<p>Aqui cada palavra inteira é um token. Se você digitar uma palavra nova, ela é <b>acrescentada ao vocabulário</b> automaticamente (num modelo real, o BPE a quebraria em subpalavras conhecidas). O limite é de ${MAXT} tokens por frase.</p>`)}
+</div>
+${card('Tokens especiais', `<div class="tbl-wrap"><table class="tbl"><tr><th>Token</th><th>Função</th></tr>
+<tr><td><code>&lt;s&gt;</code></td><td>Início de sequência: é o primeiro token que o decoder recebe ("comece a traduzir").</td></tr>
+<tr><td><code>&lt;/s&gt;</code></td><td>Fim de sequência: quando o decoder o gera, a tradução termina.</td></tr>
+<tr><td><code>&lt;pad&gt;</code></td><td>Preenchimento: frases de tamanhos diferentes são completadas para formar lotes (batches) retangulares; a atenção ignora essas posições.</td></tr>
+<tr><td><code>&lt;unk&gt;</code></td><td>Token desconhecido (raro com BPE).</td></tr></table></div>`)}`;
+}
+
+/* ---------- 2. embedding ---------- */
+function stepEmbedding() {
+  const n = R.src.length, sel = clampSel('embTok', n), w = R.src[sel], id = R.id(w), V = R.vocab.length;
+  const uniq = [...new Set(R.src)];
+  const meanAbs = A => A.flat().reduce((a, v) => a + Math.abs(v), 0) / A.flat().length;
+  const oneHot = `<div class="hm-scroll"><div class="hm" style="grid-template-columns:repeat(${V},9px);grid-auto-rows:16px">${R.vocab.map((v, j) => `<div class="c" style="background:${j === id ? '#12396b' : '#eef3f8'}" data-tip="${esc(v)} (id ${j}): ${j === id ? 1 : 0}"></div>`).join('')}</div></div>`;
+  const repeated = R.src.length !== uniq.length;
+  return `
+<p class="lead">Cada ID vira um vetor de ${m(tx`d_{\text{model}}`)} números reais: o <b>embedding</b> do token. É simplesmente uma consulta a uma tabela: a matriz ${m('E')} tem uma linha por token do vocabulário, e o ID diz qual linha pegar.</p>
+${M(tx`x_i = E[\,\text{id}_i\,] \in \mathbb{R}^{d_{\text{model}}}, \qquad E \in \mathbb{R}^{V \times d_{\text{model}}}`)}
+${card('1 · Consulta à tabela (= one-hot × E)', `<p>Escolha um token:</p>${tokChips(R.src, { act: 'embtok', sel })}
+<p class="small">Pegar a linha ${id} de ${m('E')} é o mesmo que multiplicar um vetor <b>one-hot</b> (tudo zero, exceto um 1 na posição ${id}) pela matriz ${m('E')}. Por isso a camada de embedding é, na prática, uma camada linear sem viés.</p>
+<div class="hm-title">one-hot("${esc(w)}") ${sh('1 × ' + V)}</div>${oneHot}
+<div class="flowrow" style="margin-top:8px"><span class="op">× E =</span>${heat([R.Emb[id]], { rows: [w], title: `E[${id}] — embedding de "${esc(w)}"`, shape: sh('1 × ' + D, '1 × 512') })}</div>`)}
+<div class="grid2">
+${card('2 · Linhas de E usadas nesta frase', heat(uniq.map(t => R.Emb[R.id(t)]), { rows: uniq.map(t => `${t} (${R.id(t)})`), title: 'E (apenas algumas linhas)', shape: sh(`${V} × ${D}`, '37000 × 512') }) + `<p class="small muted">A matriz completa tem ${V} linhas. Os valores são <b>parâmetros aprendidos</b>: começam aleatórios e são ajustados no treino.</p>`)}
+${card('3 · A frase vira uma matriz', heat(R.embS, { rows: R.src, title: 'X<sub>emb</sub>', shape: sh(`${n} × ${D}`, 'n × 512'), hlRow: sel }) + `<p class="small muted">Uma linha por token, na ordem da frase.</p>`)}
+</div>
+${card(`4 · Multiplicar por √d<sub>model</sub> = √${D} ≈ ${fmt(Math.sqrt(D), 3)}`, `<div class="flowrow">${heat(R.embS, { rows: R.src, title: 'X<sub>emb</sub>', max: 1.6 })}<span class="op">× √${D} =</span>${heat(R.scS, { rows: R.src, title: 'X<sub>emb</sub> · √d<sub>model</sub>', max: 1.6, shape: sh(`${n} × ${D}`, 'n × 512') })}</div>
+<p><span class="stat">|valor| médio antes: <b>${fmt(meanAbs(R.embS), 3)}</b></span><span class="stat">depois: <b>${fmt(meanAbs(R.scS), 3)}</b></span></p>
+${note('paper', 'No paper (seção 3.4)', `<p>"Nas camadas de embedding, multiplicamos esses pesos por ${m(tx`\sqrt{d_{\text{model}}}`)}". O paper não explica o motivo. A interpretação usual: a matriz ${m('E')} é compartilhada com a camada de saída e costuma ser inicializada com valores pequenos (~${m(tx`1/\sqrt{d_{\text{model}}}`)}). Multiplicar por ${m(tx`\sqrt{d_{\text{model}}}`)} traz cada componente para a escala ~1, a mesma da codificação posicional (senos e cossenos, entre −1 e 1), que será somada a seguir. Assim, a posição não "abafa" o significado da palavra.</p>`)}`)}
+${note('intu', 'Intuição', `<p>Depois do treino, palavras com significado parecido ficam com vetores próximos (por exemplo, "gato" perto de "cão"). Aqui os pesos são aleatórios, então ainda não há essa estrutura.</p>`)}
+${repeated ? note('try', 'Repare', `<p>Sua frase tem palavras repetidas: as linhas delas em X<sub>emb</sub> são <b>idênticas</b>. O embedding não sabe <i>onde</i> a palavra está. O próximo passo resolve isso.</p>`) : note('try', 'Experimente', `<p>Troque a frase de origem por <b>"o gato viu o cão"</b>. As duas linhas de "o" ficam idênticas: o embedding não sabe <i>onde</i> cada palavra está. O próximo passo resolve isso.</p>`)}`;
+}
+
+/* ---------- 3. codificação posicional ---------- */
+function peWidget() {
+  const P = S.peP, Dm = S.peD;
+  const dims = [...new Set([0, 0.08, 0.24, 0.5].map(f => 2 * Math.round(f * Dm / 2)))].filter(i => i < Dm);
+  const colors = ['#12396b', '#1288cf', '#d9822b', '#8aa2bf', '#2e8b57'];
+  const series = dims.map((i, k) => ({ c: colors[k], label: `dimensão ${i} (λ ≈ ${fmt(2 * Math.PI * Math.pow(10000, i / Dm), 0)} posições)`, pts: Array.from({ length: 201 }, (_, t) => { const p = t * P / 200; return [p, peVal(p, i, Dm)]; }) }));
+  return `<div class="grid2" style="align-items:start">
+<div><div class="hm-title">PE: linhas = posições 0…${P - 1}, colunas = dimensões ${S.peSplit ? '(pares/seno à esquerda, ímpares/cosseno à direita)' : '0…' + (Dm - 1)}</div><canvas id="pe-canvas" class="pecanvas"></canvas><div class="readout" id="pe-read">passe o mouse sobre o mapa</div></div>
+<div><div class="hm-title">Similaridade entre posições: PE(p) · PE(q), normalizada</div><canvas id="sim-canvas" class="simcanvas"></canvas><div class="readout" id="sim-read">&nbsp;</div></div></div>
+<div class="hm-title" style="margin-top:10px">Algumas colunas do mapa, como ondas ao longo das posições</div>
+${lineChart(series, { h: 220, y0: -1, y1: 1, xl: 'posição na frase', yl: 'valor', fy: v => fmt(v, 1) })}`;
+}
+function drawPE() {
+  const c = $('#pe-canvas'); if (!c) return;
+  const P = S.peP, Dm = S.peD;
+  c.width = Dm; c.height = P;
+  const ctx = c.getContext('2d'), img = ctx.createImageData(Dm, P);
+  const dimAt = x => (S.peSplit ? (x < Dm / 2 ? 2 * x : 2 * (x - Dm / 2) + 1) : x);
+  for (let p = 0; p < P; p++) for (let x = 0; x < Dm; x++) { const i = dimAt(x); const [col] = colorOf(peVal(p, i, Dm), 1); const o = (p * Dm + x) * 4; img.data[o] = col[0]; img.data[o + 1] = col[1]; img.data[o + 2] = col[2]; img.data[o + 3] = 255; }
+  ctx.putImageData(img, 0, 0);
+  c.onmousemove = e => { const r = c.getBoundingClientRect(); const p = Math.min(P - 1, Math.floor((e.clientY - r.top) / r.height * P)), i = dimAt(Math.min(Dm - 1, Math.floor((e.clientX - r.left) / r.width * Dm))); $('#pe-read').textContent = `posição ${p}, dimensão ${i} (${i % 2 ? 'cos' : 'sin'}): ${fmt(peVal(p, i, Dm), 4)}`; };
+  const s = $('#sim-canvas'); s.width = P; s.height = P;
+  const sx = s.getContext('2d'), im2 = sx.createImageData(P, P);
+  const pm = peMat(P, Dm), half = Dm / 2;
+  const sim = Array.from({ length: P }, (_, a) => Array.from({ length: P }, (_, b) => pm[a].reduce((t, v, k) => t + v * pm[b][k], 0) / half));
+  for (let a = 0; a < P; a++) for (let b = 0; b < P; b++) { const [col] = colorOf(sim[a][b], 1); const o = (a * P + b) * 4; im2.data[o] = col[0]; im2.data[o + 1] = col[1]; im2.data[o + 2] = col[2]; im2.data[o + 3] = 255; }
+  sx.putImageData(im2, 0, 0);
+  s.onmousemove = e => { const r = s.getBoundingClientRect(); const a = Math.min(P - 1, Math.floor((e.clientY - r.top) / r.height * P)), b = Math.min(P - 1, Math.floor((e.clientX - r.left) / r.width * P)); $('#sim-read').textContent = `pos ${a} × pos ${b} (distância ${Math.abs(a - b)}): ${fmt(sim[a][b], 3)}`; };
+}
+function stepPE() {
+  const n = R.src.length;
+  return `
+<p class="lead">A atenção (que vem a seguir) trata a frase como um <b>conjunto</b> de vetores: se embaralharmos as palavras, cada token recebe exatamente o mesmo resultado, só que em outra ordem. Sem informação de posição, "o gato comeu o peixe" e "o peixe comeu o gato" seriam indistinguíveis! A solução do paper: <b>somar</b> a cada embedding um vetor que depende apenas da posição.</p>
+${M(tx`PE_{(pos,\,2i)} = \sin\!\left(\frac{pos}{10000^{\,2i/d_{\text{model}}}}\right) \qquad PE_{(pos,\,2i+1)} = \cos\!\left(\frac{pos}{10000^{\,2i/d_{\text{model}}}}\right)`)}
+<p>Cada par de dimensões ${m('(2i,\\,2i+1)')} é um seno e um cosseno com uma <b>frequência</b> própria. As primeiras dimensões oscilam rápido (comprimento de onda ${m('2\\pi')}); as últimas, muito devagar (até ${m(tx`10000\cdot 2\pi`)}).</p>
+${card('Explore a codificação posicional', `<div class="ctrl-row"><label class="rng">Posições <input type="range" min="10" max="100" step="5" value="${S.peP}" data-in="peP"><b id="lbl-peP">${S.peP}</b></label><label class="rng">d<sub>model</sub> <input type="range" min="16" max="512" step="16" value="${S.peD}" data-in="peD"><b id="lbl-peD">${S.peD}</b></label><span class="ctrl-lbl">Colunas</span>${seg('pesplit', S.peSplit ? 1 : 0, [[0, 'intercaladas (como na fórmula)'], [1, 'senos | cossenos']])}</div><div id="w-pe">${peWidget()}</div>`)}
+<div class="grid2">
+${note('intu', 'Intuição: um relógio com muitos ponteiros', `<p>Pense num relógio com ponteiros de segundos, minutos, horas, dias… Os rápidos distinguem posições vizinhas; os lentos distinguem posições distantes. A combinação de todos identifica cada posição de forma única — parecido com os bits de um contador binário, mas suave.</p>`)}
+${note('intu', 'Por que senos e cossenos?', `<p>No mapa de similaridade, o valor depende (quase) só da <b>distância</b> entre as posições — são as faixas paralelas à diagonal. Além disso, ${m('PE_{pos+k}')} é uma <b>rotação</b> de ${m('PE_{pos}')}, para qualquer ${m('k')} fixo:</p>${M(tx`\begin{pmatrix}\sin\omega(p+k)\\ \cos\omega(p+k)\end{pmatrix} = \begin{pmatrix}\cos\omega k & \sin\omega k\\ -\sin\omega k & \cos\omega k\end{pmatrix}\begin{pmatrix}\sin\omega p\\ \cos\omega p\end{pmatrix}`)}<p>Os autores apostaram que isso facilita aprender posições <b>relativas</b> ("a palavra 2 posições antes").</p>`)}
+</div>
+${card('No nosso modelo: embedding + posição', `<div class="flowrow">${heat(R.scS, { rows: R.src, title: 'X<sub>emb</sub>·√d', max: 2 })}<span class="op">+</span>${heat(R.peS, { rows: R.src.map((_, i) => 'pos ' + i), title: 'PE', max: 2 })}<span class="op">=</span>${heat(R.X0, { rows: R.src, title: 'X<sub>0</sub> (entrada do encoder)', max: 2, shape: sh(`${n} × ${D}`, 'n × 512') })}</div>
+<p class="small muted">A PE não tem nenhum parâmetro: é fixa, calculada pela fórmula. Ela é <b>somada</b> (não concatenada): o formato continua ${n} × ${D}. Repare na coluna d0 de PE: é sin(pos), que muda rápido; a d6 é sin(pos/1000), que quase não muda em frases curtas.</p>`)}
+${note('paper', 'No paper', `<p>Os autores também testaram <b>embeddings posicionais aprendidos</b> (uma tabela por posição) e os resultados foram quase idênticos (Tabela 3, linha E). Escolheram a versão senoidal porque ela pode funcionar para frases <b>mais longas</b> do que as vistas no treino. Durante o treino, aplica-se dropout (P = 0,1) à soma embedding + PE.</p>`)}`;
+}
+
+/* ---------- 4. Q, K, V ---------- */
+function stepQKV() {
+  const l = S.layer, h = S.head, L = R.enc[l], hd = L.att.heads[h], P = R.W.enc[l].att, n = R.src.length;
+  const proj = (k, lbl, desc) => card(`${lbl} — cabeça ${h + 1}`, `<div class="flowrow"><span class="op" style="font-size:16px">X ×</span>${heat(P['W' + k.toLowerCase()][h], { rows: dl(D), cols: dl(DK), title: `W<sup>${k}</sup><sub>${h + 1}</sub>`, shape: sh(`${D} × ${DK}`, '512 × 64'), cw: 40 })}<span class="op">=</span>${heat(hd[k], { rows: R.src, cols: dl(DK), title: k, shape: sh(`${n} × ${DK}`, 'n × 64'), cw: 40 })}</div><p class="small muted" style="margin:0">${desc}</p>`);
+  return `
+<p class="lead">Agora começa o coração do Transformer: a <b>self-attention</b>. Cada token vai olhar para todos os tokens da frase (inclusive ele mesmo) e decidir <b>quanto</b> absorver de cada um. Para isso, cada vetor ${m('x_i')} é projetado em três papéis diferentes:</p>
+<div class="grid3 roles" style="margin-bottom:16px">
+  <div class="role q"><b>Query (q)</b>"O que eu estou procurando?"</div>
+  <div class="role k"><b>Key (k)</b>"Que tipo de informação eu tenho?" — é com ela que as queries são comparadas.</div>
+  <div class="role v"><b>Value (v)</b>"O conteúdo que eu entrego a quem prestar atenção em mim."</div>
+</div>
+${note('intu', 'Intuição: um buscador', `<p>Num buscador de vídeos, você digita uma <b>consulta</b> (query); ela é comparada com os <b>títulos e tags</b> de cada vídeo (keys); e você recebe o <b>conteúdo</b> (values) dos que combinam melhor. A atenção é uma busca "suave": em vez de devolver só o melhor resultado, devolve uma <b>mistura ponderada</b> de todos.</p>`)}
+${M(tx`Q = X\,W^{Q}_{i} \qquad K = X\,W^{K}_{i} \qquad V = X\,W^{V}_{i}`)}
+${layerSeg()}
+${card(`Entrada da camada ${l + 1}: X ${l === 0 ? '(= X<sub>0</sub>, embedding + posição)' : '(= saída da camada ' + l + ')'}`, heat(L.X, { rows: R.src, title: 'X', shape: sh(`${n} × ${D}`, 'n × 512') }) + `<p class="small muted" style="margin:0">As três projeções abaixo partem <b>da mesma</b> matriz X — por isso o nome <i>self</i>-attention: a frase presta atenção em si mesma.</p>`)}
+${proj('Q', 'Queries', 'Uma linha por token: a "pergunta" que cada token faz.')}
+${proj('K', 'Keys', 'Uma linha por token: a "etiqueta" com que cada token se apresenta.')}
+${proj('V', 'Values', 'Uma linha por token: a informação que cada token entrega.')}
+${note('paper', 'No paper', `<p>${m(tx`W^Q_i, W^K_i \in \mathbb{R}^{d_{\text{model}}\times d_k}`)} e ${m(tx`W^V_i \in \mathbb{R}^{d_{\text{model}}\times d_v}`)}, com ${m('d_k = d_v = 64')}. São matrizes <b>aprendidas</b>, diferentes para cada cabeça e cada camada. Não há viés nem função de ativação: é só uma multiplicação de matrizes.</p>`)}`;
+}
+
+/* ---------- 5. atenção ---------- */
+function labData() {
+  const dk = DK_OPTS[S.dkIdx], rng = makeRng(1000 + S.labSeed * 31);
+  const q = Array.from({ length: dk }, () => rng.g());
+  const keys = Array.from({ length: 6 }, () => Array.from({ length: dk }, () => rng.g()));
+  const sc = keys.map(k => k.reduce((s, v, i) => s + v * q[i], 0));
+  return { dk, sc, raw: softmax(sc), scl: softmax(sc.map(v => v / Math.sqrt(dk))) };
+}
+function labWidget() {
+  const L = labData(), lbl = ['k₁', 'k₂', 'k₃', 'k₄', 'k₅', 'k₆'];
+  const sd = Math.sqrt(L.sc.reduce((a, v) => a + v * v, 0) / L.sc.length);
+  return `<p class="small"><span class="stat">d<sub>k</sub> = <b>${L.dk}</b></span><span class="stat">produtos q·k: <b>${L.sc.map(v => fmt(v, 1)).join('  ')}</b></span><span class="stat">desvio típico ≈ <b>${fmt(sd, 1)}</b> (teoria: √d<sub>k</sub> = ${fmt(Math.sqrt(L.dk), 1)})</span></p>
+<div class="grid2"><div><div class="hm-title">softmax(q·k) — sem escala</div>${bars(L.raw.map((v, i) => ({ label: lbl[i], v, hl: v === Math.max(...L.raw) })), { max: 1, fmt: pct })}</div>
+<div><div class="hm-title">softmax(q·k / √d<sub>k</sub>) — com escala</div>${bars(L.scl.map((v, i) => ({ label: lbl[i], v, hl: v === Math.max(...L.scl) })), { max: 1, fmt: pct })}</div></div>`;
+}
+function stepAttention() {
+  const l = S.layer, h = S.head, hd = R.enc[l].att.heads[h], n = R.src.length, sel = clampSel('selQ', n), w = R.src[sel];
+  const A = S.scaleOn ? hd.W : hd.Wun;
+  const ex = hd.scaled[sel].map(v => Math.exp(v)), sumEx = ex.reduce((a, b) => a + b, 0);
+  const terms = R.src.map((t, j) => `${fmt(hd.W[sel][j], 2)}·v<sub>${esc(t)}</sub>`).join(' + ');
+  return `
+${M(tx`\text{Attention}(Q,K,V) = \text{softmax}\!\left(\frac{QK^{\top}}{\sqrt{d_k}}\right)V`)}
+<p class="lead">Essa fórmula curta tem quatro etapas. Clique em um token (nos rótulos das linhas ou no diagrama de linhas) para acompanhar o cálculo dele.</p>
+${layerSeg()}
+<div class="grid2">
+${card('① Similaridade: S = Q·K<sup>⊤</sup>', heat(hd.scores, { rows: R.src, cols: R.src, title: 'Q·K<sup>⊤</sup>', shape: sh(`${n} × ${n}`, 'n × n'), hlRow: sel, rowAct: 'selq' }) + `<p class="small muted" style="margin:0">Célula (i, j) = q<sub>i</sub> · k<sub>j</sub>: o quanto a pergunta do token i "combina" com a etiqueta do token j. O produto escalar é alto quando os vetores apontam na mesma direção.</p>`)}
+${card(`② Escala: dividir por √d<sub>k</sub> = √${DK} = ${fmt(Math.sqrt(DK), 0)}`, heat(hd.scaled, { rows: R.src, cols: R.src, title: 'Q·K<sup>⊤</sup> / √d<sub>k</sub>', shape: sh(`${n} × ${n}`), hlRow: sel, rowAct: 'selq' }) + `<p class="small muted" style="margin:0">Sem essa divisão, os produtos crescem com d<sub>k</sub> e o softmax "satura" (veja o laboratório abaixo).</p>`)}
+</div>
+${card('③ Softmax em cada linha → pesos de atenção', `<div class="ctrl-row"><span class="ctrl-lbl">Mostrar</span>${seg('scale', S.scaleOn ? 1 : 0, [[1, 'com ÷√d<sub>k</sub> (paper)'], [0, 'sem ÷√d<sub>k</sub>']])}</div>
+<div class="grid2" style="align-items:start">${heat(A, { rows: R.src, cols: R.src, title: 'A = softmax(…)', seq: true, max: 1, shape: sh(`${n} × ${n}`), hlRow: sel, rowAct: 'selq' })}<div>${arcs(R.src, R.src, A, sel, 'selq')}</div></div>
+<p class="small muted">Cada linha agora é uma distribuição de probabilidade: valores entre 0 e 1 que <b>somam 1</b>. A linha de "${esc(w)}" diz quanto "${esc(w)}" vai absorver de cada token. ${S.scaleOn ? '' : '<b>Sem a escala, as distribuições ficam mais concentradas (mais "picudas").</b>'}</p>`)}
+${card(`Calculando a linha de "${esc(w)}" passo a passo`, `<div class="tbl-wrap"><table class="tbl"><tr><th>chave (token j)</th><th class="num">q·k<sub>j</sub></th><th class="num">÷ √d<sub>k</sub></th><th class="num">e<sup>x</sup></th><th class="num">peso = e<sup>x</sup> / Σ</th></tr>
+${R.src.map((t, j) => `<tr><td>${esc(t)}</td><td class="num">${fmt(hd.scores[sel][j], 3)}</td><td class="num">${fmt(hd.scaled[sel][j], 3)}</td><td class="num">${fmt(ex[j], 3)}</td><td class="num"><b>${fmt(hd.W[sel][j], 3)}</b></td></tr>`).join('')}
+<tr><td><b>Σ</b></td><td></td><td></td><td class="num">${fmt(sumEx, 3)}</td><td class="num"><b>1.000</b></td></tr></table></div>`)}
+${card('④ Mistura: Z = A·V', `<div class="flowrow">${heat(hd.W, { rows: R.src, cols: R.src, seq: true, max: 1, title: 'A', hlRow: sel, rowAct: 'selq', cw: 40 })}<span class="op">×</span>${heat(hd.V, { rows: R.src, cols: dl(DK), title: 'V', cw: 40 })}<span class="op">=</span>${heat(hd.out, { rows: R.src, cols: dl(DK), title: 'Z (saída da cabeça)', shape: sh(`${n} × ${DK}`, 'n × 64'), hlRow: sel, cw: 40 })}</div>
+<p>A nova representação de "${esc(w)}" é a média dos vetores <i>value</i> de todos os tokens, ponderada pelos pesos de atenção:</p><div class="eq">z<sub>${esc(w)}</sub> = ${terms}</div>`)}
+${card('Laboratório: por que dividir por √d<sub>k</sub>?', `<p>Se os componentes de q e k são aleatórios com média 0 e variância 1, o produto ${m(tx`q\cdot k=\sum_{i=1}^{d_k} q_i k_i`)} tem variância ${m('d_k')}. Com ${m('d_k = 64')} (paper), os escores ficam da ordem de ±8 a ±20: o softmax vira praticamente um "máximo duro" — quase todo o peso vai para um único token, e os <b>gradientes ficam minúsculos</b>, atrapalhando o treino. Dividir por ${m(tx`\sqrt{d_k}`)} traz a variância de volta para 1.</p>
+<div class="ctrl-row"><label class="rng">d<sub>k</sub> <input type="range" min="0" max="${DK_OPTS.length - 1}" step="1" value="${S.dkIdx}" data-in="dkIdx"><b id="lbl-dk">${DK_OPTS[S.dkIdx]}</b></label><button class="btn ghost" data-act="lab">🎲 novos vetores</button></div>
+<div id="w-lab">${labWidget()}</div>`)}`;
+}
+
+/* ---------- 6. multi-head ---------- */
+function stepMultiHead() {
+  const l = S.layer, att = R.enc[l].att, n = R.src.length;
+  const ccols = []; for (let h = 0; h < H; h++) for (let j = 0; j < DK; j++) ccols.push(`h${h + 1}·d${j}`);
+  return `
+<p class="lead">Uma única atenção calcula <b>uma</b> média ponderada por token — e médias misturam (e "borram") informações diferentes. A solução do paper é rodar <b>h atenções em paralelo</b>, cada uma com as suas próprias ${m('W^Q, W^K, W^V')}, em espaços menores (${m(tx`d_k = d_{\text{model}}/h`)}). Cada cabeça pode se especializar num tipo de relação.</p>
+${M(tx`\text{MultiHead}(X) = \text{Concat}(\text{head}_1,\dots,\text{head}_h)\,W^{O}, \qquad \text{head}_i = \text{Attention}(XW_i^{Q},\; XW_i^{K},\; XW_i^{V})`)}
+${layerSeg(false)}
+${card('1 · Cada cabeça tem seu próprio padrão de atenção', `<div class="grid2">${att.heads.map((hd, i) => heat(hd.W, { rows: R.src, cols: R.src, seq: true, max: 1, title: `Cabeça ${i + 1}: pesos A<sub>${i + 1}</sub>`, cw: 40 })).join('')}</div><p class="small muted" style="margin:0">Mesma frase, mesma entrada X — mas como os pesos W são diferentes, cada cabeça olha para lugares diferentes.</p>`)}
+${card('2 · Saídas das cabeças → concatenação', `<div class="flowrow">${att.heads.map((hd, i) => heat(hd.out, { rows: R.src, cols: dl(DK), title: `Z<sub>${i + 1}</sub>`, shape: sh(`${n} × ${DK}`), cw: 38 })).join('<span class="op">‖</span>')}<span class="op">→</span>${heat(att.concat, { rows: R.src, cols: ccols, title: 'Concat(Z<sub>1</sub>, Z<sub>2</sub>)', shape: sh(`${n} × ${H * DK}`, 'n × 512'), cw: 40, colLabels: false })}</div><p class="small muted" style="margin:0">As saídas são coladas lado a lado: ${H} cabeças × ${DK} = ${H * DK} = d<sub>model</sub> colunas (no paper: 8 × 64 = 512).</p>`)}
+${card('3 · Projeção final com W<sup>O</sup>', `<div class="flowrow">${heat(att.concat, { rows: R.src, cols: ccols, title: 'Concat', cw: 38, colLabels: false })}<span class="op">×</span>${heat(R.W.enc[l].att.Wo, { rows: ccols, title: 'W<sup>O</sup>', shape: sh(`${H * DK} × ${D}`, '512 × 512'), cw: 38 })}<span class="op">=</span>${heat(att.out, { rows: R.src, title: 'MultiHead(X)', shape: sh(`${n} × ${D}`, 'n × 512'), cw: 38 })}</div><p class="small muted" style="margin:0">W<sup>O</sup> (aprendida) mistura o que as cabeças descobriram. A saída tem <b>exatamente o mesmo formato da entrada</b> X — isso é essencial para o próximo passo (a soma residual).</p>`)}
+<div class="grid2">
+${note('intu', 'Intuição', `<p>Em modelos treinados, pesquisadores observam cabeças que se especializam: uma liga verbos aos seus sujeitos, outra liga pronomes ao que eles se referem, outra olha para a palavra anterior… Ninguém programa isso: emerge do treino.</p>`)}
+${note('paper', 'No paper', `<p>h = 8 cabeças com d<sub>k</sub> = d<sub>v</sub> = 64. Como cada cabeça trabalha em dimensão reduzida, o custo total é parecido com o de uma única cabeça de dimensão 512. Na Tabela 3 (A), usar 1 cabeça piorou 0,9 BLEU; cabeças demais também pioraram.</p>`)}
+</div>`;
+}
+
+/* ---------- 7. add & norm ---------- */
+function stepAddNorm() {
+  const l = S.layer, L = R.enc[l], n = R.src.length, sel = clampSel('lnTok', n), w = R.src[sel];
+  const mx = Math.max(...[L.X, L.att.out, L.res1, L.n1.out].flat(2).map(Math.abs));
+  return `
+<p class="lead">Toda subcamada do Transformer (atenção ou feed-forward) é "embrulhada" por duas operações simples, mas cruciais: uma <b>conexão residual</b> e uma <b>normalização de camada</b>.</p>
+${M(tx`\text{saída} = \text{LayerNorm}\big(x + \text{Subcamada}(x)\big)`)}
+${layerSeg(false)}
+${card('① Add: conexão residual', `<div class="flowrow">${heat(L.X, { rows: R.src, title: 'X (entrada da subcamada)', max: mx, cw: 40, hlRow: sel })}<span class="op">+</span>${heat(L.att.out, { rows: R.src, title: 'MultiHead(X)', max: mx, cw: 40, hlRow: sel })}<span class="op">=</span>${heat(L.res1, { rows: R.src, title: 'X + MultiHead(X)', max: mx, cw: 40, shape: sh(`${n} × ${D}`, 'n × 512'), hlRow: sel })}</div>
+${note('intu', 'Intuição', `<p>A subcamada não precisa reconstruir o vetor inteiro: ela só calcula um <b>ajuste</b> (um "delta") que é somado ao que já existia. A informação original nunca se perde, e no treino o gradiente tem uma "rodovia" direta passando por todas as camadas — é o que permite empilhar redes profundas (ideia das ResNets, He et al., 2016).</p>`)}`)}
+${card('② Norm: LayerNorm em cada token', `${M(tx`\text{LayerNorm}(x) = \gamma \odot \frac{x-\mu}{\sqrt{\sigma^{2}+\epsilon}} + \beta`)}
+<p>Para <b>cada token (linha) separadamente</b>, calcula-se a média ${m(tx`\mu`)} e o desvio padrão ${m(tx`\sigma`)} dos seus ${D} valores; subtrai-se a média e divide-se pelo desvio. Depois, ${m(tx`\gamma`)} e ${m(tx`\beta`)} (aprendidos, um valor por dimensão; começam em 1 e 0) permitem reescalar.</p>
+<div class="grid2" style="align-items:start"><div>${heat(L.n1.out, { rows: R.src, title: 'LayerNorm(X + MultiHead(X))', cw: 40, shape: sh(`${n} × ${D}`, 'n × 512'), hlRow: sel, rowAct: 'lntok' })}
+<div class="tbl-wrap"><table class="tbl"><tr><th>token</th><th class="num">μ antes</th><th class="num">σ antes</th><th class="num">μ depois</th><th class="num">σ depois</th></tr>${R.src.map((t, i) => { const a = rowStats(L.n1.out[i]); return `<tr class="${i === sel ? 'hl' : ''}"><td>${esc(t)}</td><td class="num">${fmt(L.n1.mean[i], 3)}</td><td class="num">${fmt(L.n1.std[i], 3)}</td><td class="num">${fmt(a.mu, 3)}</td><td class="num">${fmt(a.sd, 3)}</td></tr>`; }).join('')}</table></div></div>
+<div><p class="small">Token <b>"${esc(w)}"</b> antes e depois da normalização (clique em outro token na matriz):</p>${colChart([{ name: 'antes (X + MultiHead(X))', c: '#8aa2bf', v: L.res1[sel] }, { name: 'depois (LayerNorm)', c: '#12396b', v: L.n1.out[sel] }], dl(D))}
+<p class="small muted">O "formato" do vetor (quais dimensões são altas ou baixas) é preservado; muda só o centro e a escala. Isso mantém os números numa faixa estável, camada após camada.</p></div></div>`)}
+<div class="grid2">
+${note('paper', 'No paper', `<p>O dropout (P = 0,1) é aplicado à saída de cada subcamada <b>antes</b> da soma, apenas durante o treino. O mesmo "Add & Norm" aparece depois da feed-forward (próximo passo).</p>`)}
+${note('warn', 'Curiosidade', `<p>O paper usa <b>Post-LN</b>: normaliza depois da soma. Muitos modelos posteriores (GPT-2 em diante) usam <b>Pre-LN</b>: ${m(tx`x + \text{Subcamada}(\text{LayerNorm}(x))`)}, que costuma ser mais estável para treinar redes muito profundas. Aqui seguimos o original.</p>`)}
+</div>`;
+}
+
+/* ---------- 8. FFN ---------- */
+function stepFFN() {
+  const l = S.layer, L = R.enc[l], F = L.f, n = R.src.length;
+  const zeros = F.hid.flat().filter(v => v === 0).length, tot = n * DFF;
+  const pAtt = 4 * PAPER.d * PAPER.d, pFF = 2 * PAPER.d * PAPER.dff + PAPER.d + PAPER.dff;
+  return `
+<p class="lead">Depois que cada token coletou informação dos outros (atenção), ele passa <b>sozinho</b> por uma pequena rede neural de duas camadas — a <b>mesma</b> rede para todas as posições.</p>
+${M(tx`\text{FFN}(x) = \max(0,\; xW_1 + b_1)\,W_2 + b_2`)}
+${layerSeg(false)}
+${card('① Expandir: x·W<sub>1</sub> + b<sub>1</sub>', `<div class="flowrow">${heat(L.n1.out, { rows: R.src, title: 'entrada (saída do Add & Norm)', shape: sh(`${n} × ${D}`), cw: 36 })}<span class="op">→</span>${heat(F.pre, { rows: R.src, cols: dl(DFF, 'h'), title: 'x·W<sub>1</sub> + b<sub>1</sub>', shape: sh(`${n} × ${DFF}`, 'n × 2048') })}</div><p class="small muted" style="margin:0">W<sub>1</sub> tem formato ${D} × ${DFF} (paper: 512 × 2048): cada vetor é levado para um espaço <b>4× maior</b>.</p>`)}
+${card('② ReLU: max(0, ·)', `${heat(F.hid, { rows: R.src, cols: dl(DFF, 'h'), title: 'max(0, x·W<sub>1</sub> + b<sub>1</sub>)', shape: sh(`${n} × ${DFF}`, 'n × 2048'), zero: true })}<p><span class="stat">valores zerados pela ReLU: <b>${zeros} de ${tot} (${pct(zeros / tot)})</b></span></p><p class="small muted" style="margin:0">Todo valor negativo vira zero (células tracejadas). É a <b>não-linearidade</b>: sem ela, duas multiplicações de matriz seguidas equivaleriam a uma só.</p>`)}
+${card('③ Comprimir: ·W<sub>2</sub> + b<sub>2</sub>, e de novo Add & Norm', `<div class="flowrow">${heat(F.out, { rows: R.src, title: 'FFN(x)', shape: sh(`${n} × ${D}`, 'n × 512'), cw: 36 })}<span class="op">+ x →</span>${heat(L.res2, { rows: R.src, title: 'x + FFN(x)', cw: 36 })}<span class="op">→</span>${heat(L.n2.out, { rows: R.src, title: `LayerNorm → saída da camada ${l + 1}`, shape: sh(`${n} × ${D}`, 'n × 512'), cw: 36 })}</div>`)}
+<div class="grid2">
+${note('intu', 'Intuição', `<p><b>Atenção</b> = os tokens conversam entre si. <b>FFN</b> = cada token "pensa sozinho" sobre o que ouviu. Pesquisas posteriores (Geva et al., 2021) sugerem que as FFNs funcionam como uma memória chave-valor, onde boa parte do "conhecimento" do modelo fica guardada.</p>`)}
+${note('paper', 'No paper', `<p>d<sub>ff</sub> = 2048. Os autores descrevem a FFN também como "duas convoluções com kernel de tamanho 1". Por camada do encoder: atenção ≈ ${fmtInt(pAtt)} parâmetros; FFN ≈ ${fmtInt(pFF)}. Ou seja, a FFN tem cerca de <b>2/3</b> dos parâmetros da camada.</p>`)}
+</div>`;
+}
+
+/* ---------- 9. pilha ---------- */
+function stepEncStack() {
+  const n = R.src.length;
+  const mats = [['X<sub>0</sub> (embedding + PE)', R.X0], ...R.enc.map((L, l) => [`saída da camada ${l + 1}`, L.out])];
+  return `
+<p class="lead">Uma camada do encoder = <b>Multi-head attention → Add & Norm → FFN → Add & Norm</b>. O paper empilha <b>N = 6</b> camadas com essa mesma estrutura, mas cada uma com seus próprios pesos. Como entrada e saída têm o mesmo formato (n × d<sub>model</sub>), a saída de uma camada serve de entrada para a seguinte.</p>
+${card(`O encoder inteiro (${NL} camadas no playground)`, `<div class="flowrow">${mats.map(([t, A], i) => (i ? `<span class="op">→ camada ${i} →</span>` : '') + heat(A, { rows: R.src, title: t, cw: 34, shape: i === mats.length - 1 ? sh(`${n} × ${D}`, 'n × 512') : '' })).join('')}</div><p class="small muted" style="margin:0">A última matriz é a <b>memória</b> do encoder: uma representação contextualizada de cada token da frase de origem.</p>`)}
+${card('Todos os padrões de atenção do encoder', `<div class="flowrow" style="align-items:start">${R.enc.map((L, l) => L.att.heads.map((hd, h) => heat(hd.W, { rows: R.src, cols: R.src, seq: true, max: 1, vals: false, cw: 20, ch: 20, title: `camada ${l + 1} · cabeça ${h + 1}`, colLabels: false })).join('')).join('')}</div><p class="small muted" style="margin:0">No paper seriam 6 camadas × 8 cabeças = 48 mapas como estes, para cada frase.</p>`)}
+<div class="grid2">
+${note('intu', 'Intuição', `<p>A cada camada, o vetor de cada token incorpora mais contexto. Na entrada, o vetor de "gato" representa a palavra isolada; na saída, representa "gato <i>nesta frase</i>" (quem sentou, onde). Estudos de modelos treinados indicam que camadas iniciais capturam relações mais locais e sintáticas, e camadas finais, relações mais semânticas.</p>`)}
+${note('paper', 'Para onde vai a memória?', `<p>A saída do encoder é calculada <b>uma única vez</b> por frase e é usada por <b>todas</b> as camadas do decoder, na cross-attention, como Keys e Values. Siga a seta "memória → K, V" no diagrama.</p>`)}
+</div>`;
+}
+
+/* ---------- 10. entrada decoder ---------- */
+function stepDecInput() {
+  const m_ = R.decIn.length;
+  return `
+<p class="lead">O decoder gera a tradução. No treino, usamos <b>teacher forcing</b>: damos ao decoder a tradução correta, <b>deslocada uma posição para a direita</b> (começando com <code>&lt;s&gt;</code>), e pedimos que, em cada posição, ele preveja o <b>próximo</b> token.</p>
+${card('Entrada × alvo em cada posição', `<div class="tbl-wrap"><table class="tbl"><tr><th>posição</th>${R.decIn.map((_, i) => `<th class="num">${i}</th>`).join('')}</tr><tr><td><b>entrada do decoder</b></td>${R.decIn.map(t => `<td class="num">${esc(t)}</td>`).join('')}</tr><tr><td><b>deve prever</b></td>${R.labels.map(t => `<td class="num" style="color:#1288cf"><b>${esc(t)}</b></td>`).join('')}</tr></table></div><p class="small muted" style="margin:0">É por isso que o diagrama diz "Outputs (shifted right)". A linha de baixo é a linha de cima deslocada uma posição.</p>`)}
+${M(tx`Y_0 = E[\,\text{ids}\,]\cdot\sqrt{d_{\text{model}}} + PE`)}
+${card('Mesmo processo do encoder: embedding · √d + posição', `<div class="flowrow">${heat(R.scT, { rows: R.decIn, title: 'E[ids]·√d', max: 2, cw: 38 })}<span class="op">+</span>${heat(R.peT, { rows: R.decIn.map((_, i) => 'pos ' + i), title: 'PE', max: 2, cw: 38 })}<span class="op">=</span>${heat(R.Y0, { rows: R.decIn, title: 'Y<sub>0</sub> (entrada do decoder)', max: 2, cw: 38, shape: sh(`${m_} × ${D}`, 'm × 512') })}</div><p class="small muted" style="margin:0">A matriz E é a <b>mesma</b> do encoder (vocabulário compartilhado). Repare que as duas linhas de "the" seriam idênticas sem a PE.</p>`)}
+<div class="grid2">
+${note('intu', 'Por que teacher forcing?', `<p>Se o decoder usasse as próprias previsões (ainda ruins no início do treino), um erro no começo contaminaria o resto da frase. Com a resposta correta como entrada, <b>todas as posições são treinadas em paralelo</b>, numa única passada — uma enorme vantagem sobre as RNNs.</p>`)}
+${note('warn', 'Mas há um risco…', `<p>Se a posição de "cat" puder ver a palavra seguinte ("sat"), ela simplesmente <b>copia</b> a resposta. O próximo passo mostra como o Transformer impede essa "cola".</p>`)}
+</div>`;
+}
+
+/* ---------- 11. máscara ---------- */
+function stepMasked() {
+  const l = S.layer, h = S.head, L = R.dec[l], hd = L.sa.heads[h], m_ = R.decIn.length, sel = clampSel('selM', m_);
+  const Mk = R.decIn.map((_, i) => R.decIn.map((_, j) => (j > i ? -Infinity : 0)));
+  const A = S.maskOn ? hd.W : hd.Wnomask;
+  return `
+<p class="lead">A primeira subcamada do decoder é uma self-attention igual à do encoder, com uma diferença: uma <b>máscara causal</b>. Cada posição só pode olhar para si mesma e para as posições <b>anteriores</b>.</p>
+${M(tx`\text{softmax}\!\left(\frac{QK^{\top}}{\sqrt{d_k}} + M\right)V, \qquad M_{ij} = \begin{cases} 0 & \text{se } j \le i \\ -\infty & \text{se } j > i \end{cases}`)}
+${layerSeg()}
+<div class="grid2">
+${card('Máscara M', heat(Mk, { rows: R.decIn, cols: R.decIn, title: 'M', shape: sh(`${m_} × ${m_}`), cw: 40 }) + `<p class="small muted" style="margin:0">Triangular: acima da diagonal fica −∞ ("futuro proibido").</p>`)}
+${card('Escores + máscara', heat(hd.masked, { rows: R.decIn, cols: R.decIn, title: 'QK<sup>⊤</sup>/√d<sub>k</sub> + M', cw: 40, hlRow: sel, rowAct: 'selm' }) + `<p class="small muted" style="margin:0">Como ${m('e^{-\\infty} = 0')}, essas posições recebem peso <b>exatamente zero</b> no softmax, e os demais pesos se renormalizam para somar 1.</p>`)}
+</div>
+${card('Pesos de atenção', `<div class="ctrl-row"><span class="ctrl-lbl">Máscara</span>${seg('mask', S.maskOn ? 1 : 0, [[1, 'ligada (paper)'], [0, 'desligada (trapaça!)']])}</div>
+<div class="grid2" style="align-items:start">${heat(A, { rows: R.decIn, cols: R.decIn, seq: true, max: 1, title: 'A', cw: 40, hlRow: sel, rowAct: 'selm' })}<div>${arcs(R.decIn, R.decIn, A, sel, 'selm')}</div></div>
+${S.maskOn ? `<p class="small muted" style="margin:0">A primeira linha (<code>&lt;s&gt;</code>) só pode olhar para si mesma: peso 100%. A última pode olhar para todas.</p>` : `<p class="small" style="margin:0;color:#b0661a"><b>Sem máscara, "${esc(R.decIn[Math.min(1, m_ - 1)])}" pode olhar para "${esc(R.decIn[Math.min(2, m_ - 1)])}" — justamente a palavra que deveria prever.</b> O modelo aprenderia a copiar e falharia na hora de gerar texto de verdade, quando o futuro ainda não existe.</p>`}`)}
+${card('Depois: Add & Norm', `<div class="flowrow">${heat(R.dec[l].Y, { rows: R.decIn, title: 'Y (entrada)', cw: 36 })}<span class="op">+</span>${heat(L.sa.out, { rows: R.decIn, title: 'MaskedMultiHead(Y)', cw: 36 })}<span class="op">→ LN →</span>${heat(L.n1.out, { rows: R.decIn, title: 'saída da subcamada 1', cw: 36, shape: sh(`${m_} × ${D}`, 'm × 512') })}</div>`)}
+${note('intu', 'Intuição', `<p>É como uma prova em que cada questão vem numa folha separada: ao responder a questão 3, você pode reler as anteriores, mas as seguintes estão viradas para baixo. Graças à máscara, o treino de todas as posições acontece <b>em paralelo</b>, mas cada uma enxerga só o "passado" — exatamente como será na hora de gerar.</p>`)}`;
+}
+
+/* ---------- 12. cross-attention ---------- */
+const ILLU = [[.7, .15, .05, .05, .05], [.1, .75, .07, .04, .04], [.03, .12, .75, .05, .05], [.02, .05, .15, .7, .08], [.03, .02, .05, .6, .3], [.02, .03, .03, .12, .8], [.1, .1, .15, .15, .5]];
+function stepCross() {
+  const l = S.layer, h = S.head, L = R.dec[l], hd = L.ca.heads[h], m_ = R.decIn.length, n = R.src.length, sel = clampSel('selC', m_);
+  const isDefault = R.src.join(' ') === DEF_SRC && R.tgt.join(' ') === DEF_TGT;
+  return `
+<p class="lead">É aqui que o decoder <b>consulta a frase de origem</b>. A fórmula é a mesma atenção, mas Q vem de um lugar e K, V de outro:</p>
+<ul><li><b>Queries</b>: do decoder (saída da subcamada anterior) — "do que eu preciso da frase original para gerar a próxima palavra?"</li><li><b>Keys e Values</b>: da memória do encoder — "o que cada palavra da frase original oferece".</li></ul>
+${M(tx`\text{CrossAttention} = \text{softmax}\!\left(\frac{Q_{\text{dec}}\,K_{\text{enc}}^{\top}}{\sqrt{d_k}}\right)V_{\text{enc}}`)}
+${layerSeg()}
+${card('De onde vem cada coisa', `<div class="flowrow">${heat(hd.Q, { rows: R.decIn, cols: dl(DK), title: 'Q = (saída do decoder)·W<sup>Q</sup>', shape: sh(`${m_} × ${DK}`), cw: 38 })}${heat(hd.K, { rows: R.src, cols: dl(DK), title: 'K = memória·W<sup>K</sup>', shape: sh(`${n} × ${DK}`), cw: 38 })}${heat(hd.V, { rows: R.src, cols: dl(DK), title: 'V = memória·W<sup>V</sup>', shape: sh(`${n} × ${DK}`), cw: 38 })}</div>`)}
+${card('Pesos da cross-attention: tradução × original', `<div class="grid2" style="align-items:start">${heat(hd.W, { rows: R.decIn, cols: R.src, seq: true, max: 1, title: 'A = softmax(Q K<sup>⊤</sup>/√d<sub>k</sub>)', shape: sh(`${m_} × ${n}`, 'm × n'), cw: 44, hlRow: sel, rowAct: 'selc' })}<div>${arcs(R.decIn, R.src, hd.W, sel, 'selc')}</div></div>
+<p class="small muted" style="margin:0">A matriz não é quadrada: ${m_} linhas (tokens do decoder) × ${n} colunas (tokens da origem). Não há máscara: o decoder pode ver a frase original inteira (só se mascaram posições de <code>&lt;pad&gt;</code>).</p>`)}
+${isDefault ? card('Como ficaria num modelo treinado? (exemplo ilustrativo)', `<div class="grid2" style="align-items:start">${heat(ILLU, { rows: R.decIn, cols: R.src, seq: true, max: 1, title: 'A (ilustrativo, feito à mão)', cw: 44 })}<div><p class="small">Num modelo treinado, a cross-attention costuma parecer um <b>alinhamento</b> entre as línguas. Atenção a um detalhe: a linha de cada posição está "procurando" a palavra que ela vai <b>prever</b>. A linha de <code>&lt;s&gt;</code> (que prevê "the") olha para "o"; a de "the" (que prevê "cat") olha para "gato"; a de "on" (que prevê "the") olha para "no" (= em + o) e para "tapete".</p><p class="small muted">Esta matriz <b>não</b> foi calculada; é apenas uma ilustração.</p></div></div>`, 'soft') : ''}
+${card('Resto da camada do decoder: Add & Norm → FFN → Add & Norm', `<div class="flowrow">${heat(L.n2.out, { rows: R.decIn, title: 'após cross-attention + Add & Norm', cw: 36 })}<span class="op">→ FFN + Add & Norm →</span>${heat(L.out, { rows: R.decIn, title: `saída da camada ${l + 1} do decoder`, cw: 36, shape: sh(`${m_} × ${D}`, 'm × 512') })}</div><p class="small muted" style="margin:0">Igual ao encoder. O decoder também tem N = 6 camadas no paper; cada uma faz cross-attention com a <b>mesma</b> memória do encoder.</p>`)}`;
+}
+
+/* ---------- 13. saída ---------- */
+function stepOutput() {
+  const m_ = R.decIn.length, pos = clampSel('outPos', m_), V = R.vocab.length;
+  const pr = R.probs[pos], tgt = R.labels[pos], tid = R.id(tgt);
+  const top = pr.map((p, i) => [p, i]).sort((a, b) => b[0] - a[0]).slice(0, 10);
+  const inTop = top.some(t => t[1] === tid);
+  const items = top.map(([p, i]) => ({ label: R.vocab[i], v: p, hl: i === tid }));
+  if (!inTop) items.push({ label: '… ' + tgt, v: pr[tid], hl: true });
+  return `
+<p class="lead">A saída do decoder é uma matriz ${m_} × ${D}: um vetor por posição. Precisamos transformar cada vetor em uma <b>distribuição de probabilidade sobre o vocabulário</b> — "qual é a próxima palavra?".</p>
+${M(tx`\text{logits} = Y\,W_{\text{out}}, \quad W_{\text{out}} = E^{\top} \qquad\qquad P(\text{próximo token}) = \text{softmax}(\text{logits})`)}
+${card('① Linear: um escore (logit) para cada palavra do vocabulário', `${heat(R.logits, { rows: R.decIn, cols: R.vocab, title: 'logits = Y·E<sup>⊤</sup>', shape: sh(`${m_} × ${V}`, 'm × 37000'), vals: false, cw: 12, ch: 18, colLabels: false })}
+<p class="small muted" style="margin:0">Uma coluna por token do vocabulário (passe o mouse para ver qual). O logit de uma palavra é o produto escalar entre o vetor de saída e o embedding daquela palavra: quanto mais "parecidos", maior a probabilidade.</p>`)}
+${card('② Softmax: probabilidades em cada posição', `<p>Escolha a posição:</p>${tokChips(R.decIn, { act: 'outpos', sel: pos, label: (_, i) => '→ ' + R.labels[i] })}
+<div class="grid2" style="align-items:start"><div><div class="hm-title">Top 10 — posição ${pos} (entrada "${esc(R.decIn[pos])}")</div>${bars(items, { max: Math.max(...items.map(i => i.v)), fmt: pct })}</div>
+<div><p><span class="stat">palavra correta: <b>${esc(tgt)}</b></span><span class="stat">P(correta) = <b>${pct(pr[tid])}</b></span><span class="stat">chute uniforme: <b>${pct(1 / V)}</b></span></p>
+<p class="small">Como o modelo <b>não foi treinado</b>, a palavra correta (em azul-escuro) não tem nenhuma vantagem: as probabilidades estão próximas de 1/V. O treino consiste justamente em ajustar todos os pesos para empurrar essa barra para cima.</p></div></div>`)}
+<div class="grid2">
+${note('paper', 'No paper (seção 3.4): compartilhamento de pesos', `<p>A <b>mesma</b> matriz é usada em três lugares: embedding da entrada, embedding da saída e a camada linear antes do softmax (W<sub>out</sub> = E<sup>⊤</sup>, técnica de Press & Wolf, 2016). Com V ≈ 37.000 e d = 512, cada cópia teria ~19 milhões de parâmetros — compartilhar economiza muito.</p>`)}
+${note('intu', 'Intuição', `<p>Todo o trabalho das camadas anteriores serve para produzir, na posição i, um vetor que "aponte" para o embedding da próxima palavra. A camada final só mede essa proximidade com todas as palavras do vocabulário.</p>`)}
+</div>`;
+}
+
+/* ---------- 14. treinamento ---------- */
+function lsWidget() {
+  const K = S.lsK, e = S.eps, t = 2;
+  const sm = Array.from({ length: K }, (_, i) => (i === t ? 1 - e : e / (K - 1)));
+  const lbl = Array.from({ length: K }, (_, i) => (i === t ? 'correta' : 'tok ' + (i + 1)));
+  return `<div class="grid2"><div><div class="hm-title">Alvo sem suavização (one-hot)</div>${bars(lbl.map((l, i) => ({ label: l, v: i === t ? 1 : 0, hl: i === t })), { max: 1, fmt: pct })}</div><div><div class="hm-title">Alvo com ε = ${fmt(e, 2)}</div>${bars(lbl.map((l, i) => ({ label: l, v: sm[i], hl: i === t })), { max: 1, fmt: pct })}</div></div>`;
+}
+function lrWidget() {
+  const f = (s, d, w) => Math.pow(d, -0.5) * Math.min(Math.pow(s, -0.5), s * Math.pow(w, -1.5));
+  const pts = (d, w) => Array.from({ length: 300 }, (_, k) => { const s = 1 + k * 100000 / 299; return [s, f(s, d, w)]; });
+  const peak = f(S.warmup, S.dmLR, S.warmup);
+  return lineChart([{ c: '#8aa2bf', dash: '5 4', w: 1.5, label: 'paper: d = 512, warmup = 4000', pts: pts(512, 4000) }, { c: '#12396b', label: `seus valores: d = ${S.dmLR}, warmup = ${S.warmup}`, pts: pts(S.dmLR, S.warmup) }], { h: 230, x0: 0, x1: 100000, y0: 0, xl: 'passo de treino', yl: 'taxa de aprendizado', fx: v => fmtInt(v / 1000) + 'k', fy: v => v.toExponential(1).replace('e-', 'e−'), marks: [[S.warmup, peak, '#1288cf', 'pico: ' + peak.toExponential(2)]] });
+}
+function stepTraining() {
+  const V = R.vocab.length;
+  const rows = R.labels.map((t, i) => { const p = R.probs[i][R.id(t)]; return { i, inp: R.decIn[i], t, p, l: -Math.log(p) }; });
+  const mean = rows.reduce((a, r) => a + r.l, 0) / rows.length;
+  return `
+<p class="lead">Até aqui, todos os pesos (E, W<sup>Q</sup>, W<sup>K</sup>, W<sup>V</sup>, W<sup>O</sup>, W<sub>1</sub>, W<sub>2</sub>, γ, β…) são aleatórios. O treino compara as probabilidades previstas com a palavra correta de cada posição e ajusta <b>todos</b> esses pesos ao mesmo tempo, via backpropagation.</p>
+${M(tx`\mathcal{L} = -\frac{1}{m}\sum_{t=1}^{m} \log P\big(y_t \mid y_{\lt t},\, x\big)`)}
+${card('A perda (cross-entropy) do nosso modelo não treinado', `<div class="tbl-wrap"><table class="tbl"><tr><th>posição</th><th>entrada</th><th>alvo</th><th class="num">P(alvo)</th><th class="num">−log P</th></tr>${rows.map(r => `<tr><td>${r.i}</td><td>${esc(r.inp)}</td><td><b>${esc(r.t)}</b></td><td class="num">${pct(r.p)}</td><td class="num">${fmt(r.l, 3)}</td></tr>`).join('')}<tr class="hl"><td colspan="4"><b>perda média</b></td><td class="num"><b>${fmt(mean, 3)}</b></td></tr></table></div>
+<p class="small muted" style="margin:0">Referência: um modelo que chuta uniformemente tem perda ln(V) = ln(${V}) = ${fmt(Math.log(V), 3)}. Um modelo perfeito teria perda 0.</p>`)}
+${card('Label smoothing (ε<sub>ls</sub> = 0,1)', `<p>Em vez de exigir 100% de probabilidade na palavra correta, o paper "suaviza" o alvo: a correta recebe 1 − ε e o restante (ε) é distribuído entre as outras palavras. Segundo os autores, isso <b>piora a perplexidade</b> (o modelo fica "menos seguro"), mas <b>melhora a acurácia e o BLEU</b>.</p>
+<div class="ctrl-row"><label class="rng">ε <input type="range" min="0" max="0.5" step="0.01" value="${S.eps}" data-in="eps"><b id="lbl-eps">${fmt(S.eps, 2)}</b></label><label class="rng">nº de palavras <input type="range" min="4" max="12" step="1" value="${S.lsK}" data-in="lsK"><b id="lbl-lsK">${S.lsK}</b></label></div><div id="w-ls">${lsWidget()}</div>`)}
+${card('Taxa de aprendizado com warmup', `${M(tx`lrate = d_{\text{model}}^{-0.5}\cdot\min\big(step^{-0.5},\; step\cdot warmup^{-1.5}\big)`)}
+<p>A taxa <b>cresce linearmente</b> nos primeiros passos (warmup) e depois <b>decai</b> proporcionalmente a 1/√passo. Começar devagar evita que gradientes grandes do início, com pesos ainda aleatórios, desestabilizem o treino.</p>
+<div class="ctrl-row"><label class="rng">warmup <input type="range" min="500" max="16000" step="500" value="${S.warmup}" data-in="warmup"><b id="lbl-warmup">${S.warmup}</b></label><label class="rng">d<sub>model</sub> <input type="range" min="128" max="1024" step="128" value="${S.dmLR}" data-in="dmLR"><b id="lbl-dmLR">${S.dmLR}</b></label></div><div id="w-lr">${lrWidget()}</div>`)}
+${card('Outros detalhes do treino no paper', `<div class="tbl-wrap"><table class="tbl">
+<tr><td>Dados</td><td>WMT 2014: ~4,5 milhões de pares de frases inglês–alemão; ~36 milhões inglês–francês</td></tr>
+<tr><td>Lotes</td><td>~25.000 tokens de origem + ~25.000 tokens de destino por lote</td></tr>
+<tr><td>Otimizador</td><td>Adam com β<sub>1</sub> = 0,9, β<sub>2</sub> = 0,98, ε = 10<sup>−9</sup></td></tr>
+<tr><td>Regularização</td><td>Dropout 0,1 (saída de cada subcamada e soma embedding + PE) e label smoothing 0,1</td></tr>
+<tr><td>Hardware</td><td>1 máquina com 8 GPUs NVIDIA P100</td></tr>
+<tr><td>Duração</td><td>Base: 100 mil passos, ~12 horas. Big: 300 mil passos, ~3,5 dias</td></tr>
+<tr><td>Resultado (BLEU)</td><td>EN→DE: 27,3 (base) / <b>28,4</b> (big). EN→FR: 38,1 (base) / <b>41,8</b> (big) — novos recordes na época</td></tr></table></div>`)}`;
+}
+
+/* ---------- 15. geração ---------- */
+function stepGeneration() {
+  const done = S.gen[S.gen.length - 1] === '</s>' || S.gen.length > 12;
+  let dist = '';
+  if (!done) {
+    const pr = decodeProbs(S.gen);
+    const top = pr.map((p, i) => [p, i]).filter(([, i]) => !['<pad>', '<s>', '<unk>'].includes(R.vocab[i])).sort((a, b) => b[0] - a[0]).slice(0, 8);
+    dist = `<div class="hm-title">Distribuição na última posição (clique numa palavra para escolhê-la manualmente)</div>${bars(top.map(([p, i], k) => ({ label: R.vocab[i], v: p, hl: k === 0, act: 'genpick', val: R.vocab[i] })), { fmt: pct })}`;
+  }
+  return `
+<p class="lead">Depois de treinado, como o modelo traduz uma frase nova? Não temos mais a tradução correta para dar ao decoder. Ela é construída <b>um token por vez</b> (geração autorregressiva):</p>
+<ol><li>O <b>encoder roda uma única vez</b> sobre a frase de origem e produz a memória.</li><li>O decoder recebe só <code>&lt;s&gt;</code>.</li><li>Olhamos a distribuição de probabilidade da <b>última</b> posição.</li><li>Escolhemos um token (o mais provável = <i>greedy</i>) e o acrescentamos à entrada do decoder.</li><li>Repetimos até gerar <code>&lt;/s&gt;</code>.</li></ol>
+${card(`Gerando a tradução de "${esc(R.src.join(' '))}"`, `<div class="gen-seq">${S.gen.map((t, i) => `<span class="tok${SPECIAL.has(t) ? ' sp' : ''}${i === S.gen.length - 1 && i > 0 ? ' on' : ''}">${esc(t)}</span>`).join('')}</div>
+<div class="ctrl-row"><button class="btn acc" data-act="gennext" ${done ? 'disabled' : ''}>Gerar próximo token (greedy)</button><button class="btn ghost" data-act="genreset">Reiniciar</button>${done ? `<span class="small"><b>Fim da geração.</b></span>` : ''}</div>
+${dist}
+${S.genLog.length ? `<div class="tbl-wrap" style="margin-top:12px"><table class="tbl"><tr><th>passo</th><th>entrada do decoder</th><th>escolhido</th><th class="num">P</th></tr>${S.genLog.map((g, i) => `<tr><td>${i + 1}</td><td>${g.inp.map(esc).join(' ')}</td><td><b>${esc(g.w)}</b>${g.manual ? ' <span class="small muted">(manual)</span>' : ''}</td><td class="num">${pct(g.p)}</td></tr>`).join('')}</table></div>` : ''}`)}
+${note('warn', 'Lembrete', `<p>Com pesos aleatórios, a "tradução" gerada aqui é sem sentido — o que importa é o <b>mecanismo</b>. Com o modelo treinado, esse mesmo laço produziria "the cat sat on the mat". Repare que a cada passo o decoder roda de novo sobre a sequência inteira (implementações modernas guardam K e V já calculados — o <i>KV cache</i> — para não refazer contas).</p>`)}
+${note('paper', 'No paper: beam search', `<p>Em vez do greedy, os autores usaram <b>beam search</b> com largura 4: mantém-se as 4 traduções parciais mais prováveis a cada passo, e no fim escolhe-se a melhor, com uma penalidade de comprimento α = 0,6 (para não favorecer frases curtas demais). O comprimento máximo foi o da frase de entrada + 50 tokens.</p>`)}`;
+}
+
+/* ---------- 16. jornada ---------- */
+function journey(side, idx) {
+  const st = [];
+  if (side === 'enc') {
+    st.push(['Embedding: linha de E', R.embS[idx]], ['× √d_model', R.scS[idx]], ['+ codificação posicional (X₀)', R.X0[idx]]);
+    R.enc.forEach((L, l) => {
+      const foc = L.att.heads.reduce((acc, hd) => acc.map((v, j) => v + hd.W[idx][j] / H), new Array(R.src.length).fill(0));
+      const best = foc.map((v, j) => [v, j]).sort((a, b) => b[0] - a[0]).slice(0, 2).map(([v, j]) => `${R.src[j]} ${(v * 100).toFixed(0)}%`).join(', ');
+      st.push([`Camada ${l + 1} · contribuição da atenção <span class="small">(olhou: ${esc(best)})</span>`, L.att.out[idx], true], [`Camada ${l + 1} · Add & Norm`, L.n1.out[idx]], [`Camada ${l + 1} · contribuição da FFN`, L.f.out[idx], true], [`Camada ${l + 1} · Add & Norm (saída)`, L.n2.out[idx]]);
+    });
+  } else {
+    st.push(['Embedding: linha de E', R.embT[idx]], ['× √d_model', R.scT[idx]], ['+ codificação posicional (Y₀)', R.Y0[idx]]);
+    R.dec.forEach((L, l) => {
+      st.push([`Camada ${l + 1} · contribuição da atenção mascarada`, L.sa.out[idx], true], [`Camada ${l + 1} · Add & Norm`, L.n1.out[idx]], [`Camada ${l + 1} · contribuição da cross-attention`, L.ca.out[idx], true], [`Camada ${l + 1} · Add & Norm`, L.n2.out[idx]], [`Camada ${l + 1} · contribuição da FFN`, L.f.out[idx], true], [`Camada ${l + 1} · Add & Norm (saída)`, L.n3.out[idx]]);
+    });
+  }
+  return st;
+}
+function stepJourney() {
+  const side = S.trackSide, list = side === 'enc' ? R.src : R.decIn;
+  if (S.trackIdx >= list.length) S.trackIdx = 0;
+  const idx = S.trackIdx, st = journey(side, idx), base = st[0][1];
+  const mx = Math.max(...st.flatMap(s => s[1].map(Math.abs)));
+  let tail = '';
+  if (side === 'dec') {
+    const pr = R.probs[idx], best = pr.indexOf(Math.max(...pr));
+    tail = `<p class="small" style="margin-top:10px">Por fim: logits = y·E<sup>⊤</sup> → softmax → palavra mais provável: <b>${esc(R.vocab[best])}</b> (${pct(pr[best])}); alvo correto: <b>${esc(R.labels[idx])}</b>.</p>`;
+  }
+  const P = PAPER;
+  return `
+<p class="lead">Vamos juntar tudo acompanhando <b>um único token</b> — todas as transformações aplicadas ao seu vetor, do embedding até a saída.</p>
+${card('Escolha o token', `<div class="ctrl-row"><span class="ctrl-lbl">Lado</span>${seg('tside', side, [['enc', 'encoder (origem)'], ['dec', 'decoder (destino)']])}</div>${tokChips(list, { act: 'tidx', sel: idx, ids: false })}`)}
+${card(`A jornada de "${esc(list[idx])}"`, `<div class="tbl-wrap"><div class="jr"><span class="h">etapa</span><span class="h">vetor (${D} dimensões)</span><span class="h num">‖v‖</span><span class="h num cos">cos com o embedding</span>
+${st.map(([lab, v, delta]) => `<span class="lab${delta ? ' delta' : ''}">${delta ? '↳ ' : ''}${lab}</span>${strip(v, mx)}<span class="num">${fmt(norm(v), 2)}</span><span class="num cos">${fmt(cos(v, base), 2)}</span>`).join('')}</div></div>
+${tail}<p class="small muted" style="margin-top:10px">Linhas em itálico (↳) são as <b>contribuições</b> que cada subcamada soma ao vetor (o "delta" da conexão residual). A coluna "cos" mostra o quanto o vetor ainda se parece com o embedding original: ele vai sendo transformado pelo contexto, camada a camada.</p>`)}
+${card('Resumo: formatos em cada etapa', `<div class="tbl-wrap"><table class="tbl"><tr><th>Etapa</th><th>Operação</th><th class="num">Playground</th><th class="num">Paper (base)</th></tr>
+<tr><td>Tokenização</td><td>texto → IDs</td><td class="num">n</td><td class="num">n</td></tr>
+<tr><td>Embedding</td><td>E[id] · √d<sub>model</sub></td><td class="num">n × ${D}</td><td class="num">n × ${P.d}</td></tr>
+<tr><td>Codificação posicional</td><td>+ PE</td><td class="num">n × ${D}</td><td class="num">n × ${P.d}</td></tr>
+<tr><td>Q, K, V (por cabeça)</td><td>X·W</td><td class="num">n × ${DK}</td><td class="num">n × ${P.dk}</td></tr>
+<tr><td>Escores de atenção</td><td>softmax(QK<sup>⊤</sup>/√d<sub>k</sub>)</td><td class="num">n × n</td><td class="num">n × n</td></tr>
+<tr><td>Saída de uma cabeça</td><td>A·V</td><td class="num">n × ${DK}</td><td class="num">n × ${P.dk}</td></tr>
+<tr><td>Multi-head</td><td>Concat · W<sup>O</sup></td><td class="num">n × ${D}</td><td class="num">n × ${P.d}</td></tr>
+<tr><td>Add & Norm</td><td>LayerNorm(x + subcamada(x))</td><td class="num">n × ${D}</td><td class="num">n × ${P.d}</td></tr>
+<tr><td>FFN (camada interna)</td><td>ReLU(xW<sub>1</sub> + b<sub>1</sub>)</td><td class="num">n × ${DFF}</td><td class="num">n × ${P.dff}</td></tr>
+<tr><td>FFN (saída)</td><td>·W<sub>2</sub> + b<sub>2</sub></td><td class="num">n × ${D}</td><td class="num">n × ${P.d}</td></tr>
+<tr><td>Memória do encoder</td><td>após N camadas</td><td class="num">n × ${D}</td><td class="num">n × ${P.d}</td></tr>
+<tr><td>Cross-attention (pesos)</td><td>Q do decoder, K do encoder</td><td class="num">m × n</td><td class="num">m × n</td></tr>
+<tr><td>Logits</td><td>Y·E<sup>⊤</sup></td><td class="num">m × ${R.vocab.length}</td><td class="num">m × ~37.000</td></tr>
+<tr><td>Probabilidades</td><td>softmax</td><td class="num">m × ${R.vocab.length}</td><td class="num">m × ~37.000</td></tr></table></div>`)}
+${note('intu', 'Depois do paper', `<p>A arquitetura deu origem a três famílias: só o <b>encoder</b> (BERT — compreensão de texto), só o <b>decoder</b> com máscara causal (GPT, Claude, Llama — geração de texto) e encoder-decoder completo (T5, modelos de tradução). Os blocos que você viu aqui são, essencialmente, os mesmos.</p>`)}`;
+}
+
+/* ---------- 17. quiz ---------- */
+const QUIZ = [
+  ['Com d<sub>model</sub> = 512 e h = 8 cabeças, qual a dimensão d<sub>k</sub> de cada cabeça?', ['512', '64', '8', '4096'], 1, 'd<sub>k</sub> = d<sub>model</sub> / h = 512 / 8 = 64.'],
+  ['Por que o produto Q·K<sup>⊤</sup> é dividido por √d<sub>k</sub>?', ['Para que cada linha some 1', 'Para evitar escores grandes que saturam o softmax e geram gradientes minúsculos', 'Para reduzir o custo computacional', 'Para incluir a informação de posição'], 1, 'A variância de q·k cresce com d<sub>k</sub>; dividir por √d<sub>k</sub> mantém os escores numa faixa em que o softmax não satura. Quem faz cada linha somar 1 é o próprio softmax.'],
+  ['O que aconteceria sem a codificação posicional?', ['O modelo não distinguiria a ordem das palavras', 'O treino ficaria mais lento, mas nada mudaria', 'O vocabulário precisaria ser maior', 'O softmax não funcionaria'], 0, 'A atenção trata a sequência como um conjunto: embaralhar as palavras apenas embaralha as saídas.'],
+  ['Qual é o papel da máscara na primeira atenção do decoder?', ['Ignorar os tokens de padding do encoder', 'Impedir que cada posição veja tokens futuros', 'Esconder palavras aleatórias, como no BERT', 'Reduzir o número de parâmetros'], 1, 'Sem a máscara, a posição i veria a palavra que deve prever, e o modelo aprenderia a copiar.'],
+  ['Na cross-attention, de onde vêm Q, K e V?', ['Q, K e V do decoder', 'Q do decoder; K e V da saída do encoder', 'Q do encoder; K e V do decoder', 'Q, K e V do encoder'], 1, 'O decoder pergunta (Q) e a memória do encoder responde (K para comparar, V para entregar o conteúdo).'],
+  ['Qual o formato da saída de uma camada do encoder (modelo base) para uma frase de n tokens?', ['n × 64', 'n × 2048', 'n × 512', '512 × 512'], 2, 'Toda camada preserva o formato n × d<sub>model</sub>; é isso que permite as conexões residuais e o empilhamento.'],
+  ['A rede feed-forward (FFN) é aplicada…', ['a cada posição separadamente, com os mesmos pesos', 'à frase inteira achatada num único vetor', 'apenas ao último token', 'somente no decoder'], 0, 'É "position-wise": a mesma rede de 2 camadas, aplicada a cada token de forma independente.'],
+  ['A LayerNorm normaliza…', ['cada dimensão ao longo do lote (batch)', 'cada token, ao longo das suas d<sub>model</sub> dimensões', 'apenas a matriz de atenção', 'somente os embeddings de entrada'], 1, 'Média e desvio são calculados por token (linha), sobre as d<sub>model</sub> dimensões.'],
+];
+function stepQuiz() {
+  const answered = Object.keys(S.quiz).length, right = Object.entries(S.quiz).filter(([q, a]) => QUIZ[q][2] === a).length;
+  return `<p class="lead">Oito perguntas rápidas sobre o que vimos. Clique na alternativa que achar correta.</p>
+<p><span class="stat">respondidas: <b>${answered}/${QUIZ.length}</b></span><span class="stat">acertos: <b>${right}</b></span>${answered ? `<button class="btn ghost" data-act="quizreset" style="margin-left:6px">Recomeçar</button>` : ''}</p>
+${QUIZ.map(([q, opts, ok, ex], qi) => { const a = S.quiz[qi]; return card('', `<div class="quiz-q"><b>${qi + 1}.</b> ${q}<div class="opts">${opts.map((o, oi) => `<button class="opt${a != null && oi === ok ? ' right' : ''}${a === oi && oi !== ok ? ' wrong' : ''}" data-act="quiz" data-v="${qi}:${oi}" ${a != null ? 'disabled' : ''}>${String.fromCharCode(65 + oi)}) ${o}</button>`).join('')}</div>${a != null ? `<div class="fb">${a === ok ? '<b style="color:#2e8b57">Correto!</b>' : '<b style="color:#c0392b">Não exatamente.</b>'} ${ex}</div>` : ''}</div>`); }).join('')}`;
+}
+
+/* =====================================================================
+   Renderização e eventos
+   ===================================================================== */
+const content = $('#content');
+function renderStepper() {
+  let h = '', g = '';
+  STEPS.forEach((s, i) => {
+    if (s.g !== g) { g = s.g; h += `<span class="chip-sep">${g}</span>`; }
+    h += `<button class="chip${i === S.step ? ' on' : ''}${i < S.step ? ' done' : ''}" data-step="${i}"><span class="n">${i + 1}</span>${s.t}</button>`;
+  });
+  $('#stepper').innerHTML = h;
+  const on = $('#stepper .chip.on');
+  if (on) { const p = $('#stepper'); p.scrollLeft = on.offsetLeft - p.clientWidth / 2 + on.clientWidth / 2; }
+}
+function renderDiagram() {
+  const blocks = new Set(STEPS[S.step].blocks);
+  document.querySelectorAll('#diagram [data-blk]').forEach(el => el.classList.toggle('act', blocks.has(el.dataset.blk)));
+}
+function render() {
+  const st = STEPS[S.step];
+  content.innerHTML = `<div class="step-head"><div class="step-kicker">Passo ${S.step + 1} de ${STEPS.length} · ${st.g}</div><h2>${st.t}</h2><div class="key">${st.k}</div></div>` + st.r();
+  if (st.id === 'posicao') drawPE();
+  if (window.renderMathInElement) {
+    try { renderMathInElement(content, { delimiters: [{ left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false }], throwOnError: false }); } catch (e) { console.warn(e); }
+  }
+  renderStepper(); renderDiagram();
+  $('#prev').disabled = S.step === 0; $('#next').disabled = S.step === STEPS.length - 1;
+  $('#prev').textContent = S.step > 0 ? '← ' + STEPS[S.step - 1].t : '← Anterior';
+  $('#next').textContent = S.step < STEPS.length - 1 ? STEPS[S.step + 1].t + ' →' : 'Próximo →';
+  $('#pager-info').textContent = `${S.step + 1} / ${STEPS.length}`;
+  $('#seed-info').textContent = `semente dos pesos: ${S.seed}`;
+}
+function setStep(i, scroll = true) {
+  S.step = Math.max(0, Math.min(STEPS.length - 1, i));
+  history.replaceState(null, '', '#' + STEPS[S.step].id);
+  render();
+  if (scroll) { const top = $('.layout').getBoundingClientRect().top + window.scrollY - 56; if (window.scrollY > top) window.scrollTo({ top, behavior: 'smooth' }); }
+}
+function recompute() { R = run(); S.gen = ['<s>']; S.genLog = []; render(); }
+
+const ACT = {
+  goto: v => setStep(+v),
+  layer: v => { S.layer = +v; }, head: v => { S.head = +v; },
+  selq: v => { S.selQ = +v; }, selm: v => { S.selM = +v; }, selc: v => { S.selC = +v; },
+  scale: v => { S.scaleOn = v === '1'; }, mask: v => { S.maskOn = v === '1'; },
+  embtok: v => { S.embTok = +v; }, lntok: v => { S.lnTok = +v; }, outpos: v => { S.outPos = +v; },
+  lab: () => { S.labSeed++; }, pesplit: v => { S.peSplit = v === '1'; },
+  tside: v => { S.trackSide = v; S.trackIdx = 0; }, tidx: v => { S.trackIdx = +v; },
+  quiz: v => { const [q, a] = v.split(':').map(Number); S.quiz[q] = a; }, quizreset: () => { S.quiz = {}; },
+  gennext: () => {
+    const pr = decodeProbs(S.gen);
+    let best = -1, bp = -1;
+    pr.forEach((p, i) => { if (!['<pad>', '<s>', '<unk>'].includes(R.vocab[i]) && p > bp) { bp = p; best = i; } });
+    S.genLog.push({ inp: [...S.gen], w: R.vocab[best], p: bp }); S.gen.push(R.vocab[best]);
+  },
+  genpick: v => { const pr = decodeProbs(S.gen); S.genLog.push({ inp: [...S.gen], w: v, p: pr[R.id(v)], manual: true }); S.gen.push(v); },
+  genreset: () => { S.gen = ['<s>']; S.genLog = []; },
+};
+content.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]'); if (!t || t.disabled) return;
+  const f = ACT[t.dataset.act]; if (!f) return;
+  if (t.dataset.act === 'goto') { f(t.dataset.v); return; }
+  f(t.dataset.v); render();
+});
+const SLIDERS = {
+  peP: v => { S.peP = +v; }, peD: v => { S.peD = +v; }, dkIdx: v => { S.dkIdx = +v; }, eps: v => { S.eps = +v; }, lsK: v => { S.lsK = +v; }, warmup: v => { S.warmup = +v; }, dmLR: v => { S.dmLR = +v; },
+};
+content.addEventListener('input', e => {
+  const k = e.target.dataset.in; if (!k) return;
+  SLIDERS[k](e.target.value);
+  const set = (id, txt) => { const el = $('#' + id); if (el) el.textContent = txt; };
+  if (k === 'peP' || k === 'peD') { set('lbl-' + k, e.target.value); $('#w-pe').innerHTML = peWidget(); drawPE(); }
+  if (k === 'dkIdx') { set('lbl-dk', DK_OPTS[S.dkIdx]); $('#w-lab').innerHTML = labWidget(); }
+  if (k === 'eps' || k === 'lsK') { set('lbl-eps', fmt(S.eps, 2)); set('lbl-lsK', S.lsK); $('#w-ls').innerHTML = lsWidget(); }
+  if (k === 'warmup' || k === 'dmLR') { set('lbl-' + k, e.target.value); $('#w-lr').innerHTML = lrWidget(); }
+});
+// tooltip
+const tip = $('#tip');
+document.addEventListener('mouseover', e => { const t = e.target.closest('[data-tip]'); if (t) { tip.textContent = t.dataset.tip; tip.style.opacity = 1; } else tip.style.opacity = 0; });
+document.addEventListener('mousemove', e => { if (tip.style.opacity === '1') { const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8); tip.style.left = x + 'px'; tip.style.top = (e.clientY + 16) + 'px'; } });
+
+document.addEventListener('DOMContentLoaded', () => {
+  $('#diagram').innerHTML = diagramSVG();
+  $('#diagram').addEventListener('click', e => { const b = e.target.closest('[data-blk]'); if (!b) return; const i = STEPS.findIndex(s => s.blocks.includes(b.dataset.blk)); if (i >= 0) setStep(i); });
+  $('#stepper').addEventListener('click', e => { const c = e.target.closest('[data-step]'); if (c) setStep(+c.dataset.step); });
+  $('#prev').onclick = () => setStep(S.step - 1);
+  $('#next').onclick = () => setStep(S.step + 1);
+  document.addEventListener('keydown', e => { if (/INPUT|TEXTAREA/.test(document.activeElement.tagName) && document.activeElement.type !== 'range') return; if (document.activeElement.type === 'range') return; if (e.key === 'ArrowRight') setStep(S.step + 1); if (e.key === 'ArrowLeft') setStep(S.step - 1); });
+  const src = $('#in-src'), tgt = $('#in-tgt');
+  src.value = S.src; tgt.value = S.tgt;
+  let tm = null;
+  const onIn = () => { clearTimeout(tm); tm = setTimeout(() => { S.src = src.value; S.tgt = tgt.value; recompute(); }, 250); };
+  src.addEventListener('input', onIn); tgt.addEventListener('input', onIn);
+  $('#btn-seed').onclick = () => { S.seed = 1 + Math.floor(Math.random() * 9999); recompute(); };
+  $('#btn-reset').onclick = () => { S.src = DEF_SRC; S.tgt = DEF_TGT; S.seed = 7; src.value = S.src; tgt.value = S.tgt; recompute(); };
+  R = run();
+  const h = location.hash.slice(1), i = STEPS.findIndex(s => s.id === h);
+  S.step = i >= 0 ? i : 0;
+  render();
+});
+</script>
+</body>
+</html>
